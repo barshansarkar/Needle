@@ -1,0 +1,101 @@
+{
+  "name": "niddle-browser",
+  "productName": "Nova",
+  "version": "1.0.0",
+    "description": "A sexy modern web browser",
+  "main": "main.js",
+  "author": {
+    "name": "Barshan",
+    "email": "barshan@example.com"
+  },
+  "homepage": "https://github.com/barshan/nova-browser",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "lean": "./node_modules/.bin/electron .",
+    "build": "electron-builder",
+    "build:linux": "electron-builder --linux",
+    "build:win": "electron-builder --win",
+    "build:all": "electron-builder --linux --win"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.barshan.nova",
+    "productName": "Nova",
+    "copyright": "Copyright © 2025 Barshan",
+
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+
+    "files": [
+      "main.js",
+      "preload.js",
+      "preload-webview.js",
+      "src/**/*",
+      "!src/**/*.map",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/.bin",
+      "!**/*.{o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+    ],
+
+    "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
+
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb", "arch": ["x64"] },
+        { "target": "tar.gz", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.png",
+      "category": "Network",
+      "synopsis": "Modern web browser",
+      "description": "Nova is a fast, beautiful web browser built with Electron.",
+      "executableName": "nova-browser"
+    },
+
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] },
+        { "target": "zip", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.ico",
+      "fileAssociations": [
+        {
+          "ext": "html",
+          "name": "HTML Document",
+          "role": "Viewer"
+        }
+      ]
+    },
+
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Nova"
+    },
+
+    "compression": "maximum",
+    "removePackageScripts": true,
+    "asar": true
+  }
+}

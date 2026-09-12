@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <link rel="preconnect" href="https://duckduckgo.com">
+<link rel="dns-prefetch" href="https://duckduckgo.com">
+<link rel="preconnect" href="https://youtube.com">
+<link rel="preconnect" href="https://github.com">
+  <title>New Tab</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+      background: #0a0a0f; color: #e8e8f0;
+      height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: -50%;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(124,92,255,0.15), transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(255,92,208,0.12), transparent 40%);
+      animation: drift 20s ease-in-out infinite alternate;
+      z-index: -1;
+    }
+    @keyframes drift { to { transform: translate(2%, 2%) scale(1.05); } }
+    h1 {
+      font-size: 64px; font-weight: 800; letter-spacing: -2px;
+      background: linear-gradient(135deg, #7c5cff, #ff5cd0);
+      -webkit-background-clip: text; background-clip: text;
+      color: transparent; margin-bottom: 8px;
+      text-shadow: 0 0 60px rgba(124,92,255,0.4);
+    }
+    .tag { color: #7a7a8c; font-size: 14px; margin-bottom: 40px; }
+    .search {
+      width: min(560px, 80vw);
+      height: 52px; display: flex; align-items: center; gap: 12px;
+      padding: 0 20px; border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      transition: all .25s;
+    }
+    .search:focus-within {
+      border-color: #7c5cff;
+      box-shadow: 0 0 0 4px rgba(124,92,255,0.15), 0 0 30px rgba(124,92,255,0.4);
+      background: rgba(255,255,255,0.06);
+    }
+    .search input {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: #e8e8f0; font-size: 15px; font-family: inherit;
+    }
+    .search input::placeholder { color: #7a7a8c; }
+    .search .icon { font-size: 18px; opacity: 0.7; }
+    .shortcuts {
+      display: flex; gap: 14px; margin-top: 60px;
+      flex-wrap: wrap; justify-content: center;
+    }
+    .sc {
+      width: 90px; height: 90px; border-radius: 18px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px; text-decoration: none; color: #e8e8f0;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.05);
+      transition: all .25s; cursor: pointer; font-size: 11px;
+    }
+    .sc:hover {
+      background: linear-gradient(135deg, rgba(124,92,255,0.25), rgba(255,92,208,0.15));
+      border-color: rgba(124,92,255,0.5);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 30px rgba(124,92,255,0.3);
+    }
+    .sc .ico { font-size: 28px; }
+  </style>
+</head>
+<body>
+  <h1>Nova</h1>
+  <div class="tag">Search the web, beautifully.</div>
+
+  <div class="search">
+    <span class="icon">🔍</span>
+    <input id="q" type="text" placeholder="Search DuckDuckGo or type a URL…" autofocus />
+  </div>
+
+  <div class="shortcuts" id="shortcuts"></div>
+
+  <script>
+    const q = document.getElementById('q');
+    q.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const v = q.value.trim();
+        if (!v) return;
+        const isUrl = /^(https?:\/\/)|^[\w-]+\.[\w.-]+/.test(v);
+        const url = isUrl
+          ? (v.startsWith('http') ? v : 'https://' + v)
+          : 'https://duckduckgo.com/?q=' + encodeURIComponent(v);
+        window.parent?.postMessage({ type: 'nova-navigate', url }, '*');
+      }
+    });
+
+    const defaults = [
+      { name: 'YouTube', url: 'https://youtube.com', ico: '▶' },
+      { name: 'GitHub',  url: 'https://github.com',  ico: '🐙' },
+      { name: 'Reddit',  url: 'https://reddit.com',  ico: '👽' },
+      { name: 'Gmail',   url: 'https://mail.google.com', ico: '✉' },
+      { name: 'X',       url: 'https://x.com',       ico: '𝕏' },
+      { name: 'ChatGPT', url: 'https://chat.openai.com', ico: '✨' }
+    ];
+    document.getElementById('shortcuts').innerHTML = defaults.map(s => `
+      <div class="sc" data-url="${s.url}">
+        <span class="ico">${s.ico}</span>
+        <span>${s.name}</span>
+      </div>
+    `).join('');
+    document.querySelectorAll('.sc').forEach(el => {
+      el.onclick = () => window.parent?.postMessage({ type: 'nova-navigate', url: el.dataset.url }, '*');
+    });
+  </script>
+</body>
+</html>

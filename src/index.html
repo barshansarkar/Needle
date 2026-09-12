@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://duckduckgo.com https://suggestqueries.google.com; font-src 'self';" />
+  <title>BNIDDLE Browser</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Titlebar -->
+  <div class="titlebar">
+    <div class="brand">
+      <div class="logo"></div>
+      <span>NIDDLE</span>
+      <span id="private-badge" class="private-badge hidden">🕶 Private</span>
+    </div>
+    <div class="drag-region"></div>
+    <div class="window-controls">
+      <button id="min-btn" class="win-btn">─</button>
+      <button id="max-btn" class="win-btn">▢</button>
+      <button id="close-btn" class="win-btn close">✕</button>
+    </div>
+  </div>
+
+  <!-- Tab strip -->
+  <div class="tabbar">
+    <div id="tabs" class="tabs"></div>
+    <button id="new-tab" class="new-tab">+</button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button id="back" class="icon-btn" title="Back (Alt+←)">←</button>
+    <button id="forward" class="icon-btn" title="Forward (Alt+→)">→</button>
+    <button id="reload" class="icon-btn" title="Reload (Ctrl+R)">⟳</button>
+
+    <div class="url-wrap">
+      <span class="lock">🔒</span>
+      <input id="url" type="text" placeholder="Search or enter URL  (Ctrl+L)" spellcheck="false" autocomplete="off" />
+      <button id="star" class="star-btn" title="Bookmark (Ctrl+D)">☆</button>
+    </div>
+
+    <button id="zoom-out" class="icon-btn" title="Zoom Out (Ctrl+-)">−</button>
+    <button id="zoom-in" class="icon-btn" title="Zoom In (Ctrl+=)">+</button>
+    <button id="zoom-reset" class="zoom-badge" title="Reset Zoom (Ctrl+0)">100%</button>
+    <button id="downloads-btn" class="icon-btn" title="Downloads (Ctrl+J)">⬇</button>
+    <button id="history-btn" class="icon-btn" title="History (Ctrl+H)">🕘</button>
+    <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
+    <button id="devtools" class="icon-btn" title="DevTools (F12)">🛠</button>
+  </div>
+
+  <!-- Bookmark bar -->
+  <div id="bookmark-bar" class="bookmark-bar"></div>
+
+  <!-- Suggestions dropdown -->
+  <div id="suggestions" class="suggestions hidden"></div>
+
+  <!-- Find bar -->
+  <div id="findbar" class="findbar hidden">
+    <input id="find-input" type="text" placeholder="Find in page…" spellcheck="false" />
+    <span id="find-count" class="find-count">0/0</span>
+    <button id="find-prev" class="icon-btn small">↑</button>
+    <button id="find-next" class="icon-btn small">↓</button>
+    <button id="find-close" class="icon-btn small">✕</button>
+  </div>
+
+  <!-- Download toast -->
+  <div id="dl-toast" class="dl-toast hidden">
+    <span id="dl-toast-text">Download started…</span>
+    <button id="dl-toast-open">Open</button>
+    <button id="dl-toast-close">✕</button>
+  </div>
+
+  <!-- Webview container -->
+  <div id="views" class="views"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
