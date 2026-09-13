@@ -1,5 +1,5 @@
 // ============================================================
-//  ⚠️ GPU DISABLE MUST BE FIRST
+//  GPU DISABLE MUST BE FIRST
 // ============================================================
 const electron = require('electron');
 const { app } = electron;
@@ -12,13 +12,15 @@ app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('enable-zero-copy');
 app.commandLine.appendSwitch('force-gpu-mem-available-mb', '64');
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
-app.commandLine.appendSwitch('renderer-process-limit', '4');
+app.commandLine.appendSwitch('disable-gpu-program-cache');
+app.commandLine.appendSwitch('disable-software-rasterizer');
+app.commandLine.appendSwitch('renderer-process-limit', '3');
 app.commandLine.appendSwitch('enable-features', 'MemorySaver,HighEfficiencyModeAvailable');
 app.commandLine.appendSwitch('disable-features',
-  'CalculateNativeWinOcclusion,SpareRendererForSitePerProcess,AutofillServerCommunication,OptimizationHints'
+  'CalculateNativeWinOcclusion,SpareRendererForSitePerProcess,AutofillServerCommunication,OptimizationHints,MediaRouter,GlobalMediaControls,HardwareMediaKeyHandling,BackgroundFetch,NotificationTriggers'
 );
 app.commandLine.appendSwitch('js-flags',
-  '--max-old-space-size=256 --lite-mode --max-semi-space-size=4 --gc-interval=100'
+  '--max-old-space-size=96 --max-semi-space-size=2 --gc-interval=25'
 );
 
 // ============================================================
@@ -53,18 +55,41 @@ function safeOpenExternal(url) {
 let mainWindow = null;
 let bookmarksStore, historyStore, sessionStore, settingsStore;
 const downloadingItems = new Map();
-const MAX_DOWNLOADS_IN_MEMORY = 50;
-const MAX_HISTORY_ITEMS = 500;
-const MAX_SESSION_TABS = 50;
+const MAX_DOWNLOADS_IN_MEMORY = 20;
+const MAX_HISTORY_ITEMS = 200;
+const MAX_SESSION_TABS = 20;
 
 const DEFAULT_SETTINGS = {
+  // General
   homepage: 'newtab',
   searchEngine: 'duckduckgo',
-  theme: 'purple',
-  animations: true,
   restoreSession: true,
+  backgroundTabs: false,
+  confirmCloseAll: false,
+
+  // Appearance
+  theme: 'purple',
+  colorMode: 'dark',
+  animations: true,
   showBookmarkBar: true,
+  showFavicons: true,
+  compactTabs: false,
+
+  // Privacy
+  doNotTrack: false,
+  blockThirdParty: false,
+  clearHistoryOnExit: false,
+  suggestions: true,
 };
+
+const ALLOWED_ENGINES = ['duckduckgo', 'google', 'bing', 'brave', 'startpage', 'ecosia'];
+const ALLOWED_THEMES  = ['purple', 'blue', 'green', 'orange', 'pink', 'red', 'slate', 'mono'];
+const ALLOWED_MODES   = ['dark', 'darker', 'system'];
+const BOOL_KEYS = [
+  'animations', 'restoreSession', 'showBookmarkBar',
+  'showFavicons', 'compactTabs', 'backgroundTabs', 'confirmCloseAll',
+  'doNotTrack', 'blockThirdParty', 'clearHistoryOnExit', 'suggestions',
+];
 
 // ============================================================
 //  STORES
@@ -84,6 +109,12 @@ function initStores() {
     }
   }
   if (changed) settingsStore.save();
+
+  // Trim history if oversized (from older versions)
+  if (Array.isArray(historyStore.data) && historyStore.data.length > MAX_HISTORY_ITEMS) {
+    historyStore.data.length = MAX_HISTORY_ITEMS;
+    historyStore.save();
+  }
 }
 
 // ============================================================
@@ -111,7 +142,7 @@ function createWindow({ private: isPrivate = false } = {}) {
       allowRunningInsecureContent: false,
       experimentalFeatures: false,
       enableBlinkFeatures: '',
-      backgroundThrottling: false,
+      backgroundThrottling: true,
       v8CacheOptions: 'code',
       spellcheck: false,
       additionalArguments: isPrivate ? ['--nova-private=1'] : []
@@ -218,17 +249,48 @@ function httpGetJson(url, timeout = 3500) {
   });
 }
 
+// ── DuckDuckGo autocomplete ──
 async function fetchDuckDuckGo(q) {
-  const data = await httpGetJson(`https://duckduckgo.com/ac/?q=${encodeURIComponent(q)}&type=list`);
-  if (!Array.isArray(data)) return null;
-  const phrases = data.map(d => (typeof d === 'string' ? d : d.phrase)).filter(Boolean);
-  return phrases.length ? phrases.slice(0, 8) : null;
+  const data = await httpGetJson(`https://duckduckgo.com/ac/?q=${encodeURIComponent(q)}`);
+  if (!Array.isArray(data)) return [];
+  return data
+    .map(d => (typeof d === 'string' ? d : d && d.phrase))
+    .filter(Boolean);
 }
 
+// ── Google autocomplete ──
 async function fetchGoogle(q) {
-  const data = await httpGetJson(`https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(q)}`);
-  if (!Array.isArray(data) || !Array.isArray(data[1])) return null;
-  return data[1].slice(0, 8);
+  const data = await httpGetJson(
+    `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(q)}`
+  );
+  if (!Array.isArray(data) || !Array.isArray(data[1])) return [];
+  return data[1].filter(Boolean);
+}
+
+// ── Merged suggestions helper ──
+async function getMergedSuggestions(query) {
+  const ql = query.toLowerCase();
+
+  const [ddg, gg] = await Promise.all([
+    fetchDuckDuckGo(query).catch(() => []),
+    fetchGoogle(query).catch(() => []),
+  ]);
+
+  const seen = new Set();
+  const merged = [];
+
+  for (const item of [...ddg, ...gg]) {
+    const s = String(item).trim();
+    if (!s) continue;
+    const key = s.toLowerCase();
+    if (key === ql) continue;      // drop echo of the query itself
+    if (seen.has(key)) continue;   // dedupe across sources
+    seen.add(key);
+    merged.push(s);
+    if (merged.length >= 10) break;
+  }
+
+  return merged;
 }
 
 // ============================================================
@@ -253,6 +315,15 @@ function installSecurityHandlers() {
       return callback({ cancel: true });
     }
     callback({});
+  });
+
+  // Do Not Track header injection (reads latest setting each request)
+  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    if (settingsStore?.data?.doNotTrack) {
+      details.requestHeaders['DNT'] = '1';
+      details.requestHeaders['Sec-GPC'] = '1';
+    }
+    callback({ requestHeaders: details.requestHeaders });
   });
 }
 
@@ -288,7 +359,8 @@ function installWebviewSanitizer() {
       webPreferences.experimentalFeatures = false;
       webPreferences.enableBlinkFeatures = '';
       webPreferences.sandbox = false;
-      webPreferences.backgroundThrottling = false;
+      // IMPORTANT: throttle hidden tabs — do NOT set this to false
+      webPreferences.backgroundThrottling = true;
       webPreferences.v8CacheOptions = 'code';
 
       const src = params.src || '';
@@ -314,7 +386,7 @@ function installWebviewSanitizer() {
 function registerIpc() {
   const safeWindowFrom = (e) => BrowserWindow.fromWebContents(e.sender);
 
-  // Window controls
+  // ── Window controls ──
   ipcMain.on('window:minimize', (e) => safeWindowFrom(e)?.minimize());
   ipcMain.on('window:maximize', (e) => {
     const w = safeWindowFrom(e);
@@ -324,25 +396,28 @@ function registerIpc() {
   ipcMain.on('window:close', (e) => safeWindowFrom(e)?.close());
   ipcMain.on('window:new-incognito', () => createWindow({ private: true }));
 
-  // Webview preload path
+  // ── Webview preload path ──
   ipcMain.handle('app:webviewPreloadPath', () => {
     return 'file://' + path.join(__dirname, 'preload-webview.js');
   });
 
-  // App metrics
+  // ── App metrics ──
   ipcMain.handle('app:metrics', () => app.getAppMetrics());
 
-  // Search suggestions
+  // ── Search suggestions (merged DDG + Google, deduped, echo-filtered) ──
   ipcMain.handle('search:suggest', async (_e, q) => {
     if (!q || q.trim().length < 2) return [];
+    if (settingsStore?.data?.suggestions === false) return [];
+
     const query = q.trim().slice(0, 100);
-    let items = await fetchDuckDuckGo(query);
-    if (items && items.length) return items;
-    items = await fetchGoogle(query);
-    return items || [];
+    try {
+      return await getMergedSuggestions(query);
+    } catch {
+      return [];
+    }
   });
 
-  // Context menu
+  // ── Context menu ──
   ipcMain.on('webview:context-menu', (event, params) => {
     const { editFlags, linkURL, srcURL, selectionText, isEditable, x, y } = params;
     const targetWin = safeWindowFrom(event);
@@ -436,12 +511,50 @@ function registerIpc() {
   ipcMain.handle('history:clear', () => {
     historyStore.data = [];
     historyStore.save();
+    BrowserWindow.getAllWindows().forEach(w => {
+      if (!w.isDestroyed()) w.webContents.send('history:update', []);
+    });
     return true;
   });
   ipcMain.handle('history:delete', (_e, id) => {
     historyStore.data = historyStore.data.filter(h => h.id !== id);
     historyStore.save();
     return true;
+  });
+
+  // ---------- Clear browsing data ----------
+  ipcMain.handle('browser:clear-data', async (_e, kind) => {
+    const ses = session.defaultSession;
+    try {
+      if (kind === 'history') {
+        historyStore.data = [];
+        historyStore.save();
+        BrowserWindow.getAllWindows().forEach(w => {
+          if (!w.isDestroyed()) w.webContents.send('history:update', []);
+        });
+        return true;
+      }
+      if (kind === 'cookies') {
+        await ses.clearStorageData({
+          storages: ['cookies', 'localstorage', 'indexdb', 'websql',
+                     'serviceworkers', 'cachestorage', 'shadercache'],
+        });
+        return true;
+      }
+      if (kind === 'cache') {
+        await ses.clearCache();
+        return true;
+      }
+      if (kind === 'downloads') {
+        downloadingItems.clear();
+        broadcastDownloads();
+        return true;
+      }
+    } catch (err) {
+      console.error('[clear-data]', kind, err);
+      return false;
+    }
+    return false;
   });
 
   // ---------- Session ----------
@@ -469,21 +582,21 @@ function registerIpc() {
     if (!patch || typeof patch !== 'object') return settingsStore.data;
 
     for (const key of Object.keys(DEFAULT_SETTINGS)) {
-      if (key in patch) {
-        if (key === 'homepage') {
-          const v = String(patch[key] || '');
-          if (v === 'newtab' || /^https?:\/\//i.test(v)) {
-            settingsStore.data[key] = v;
-          }
-        } else if (key === 'searchEngine') {
-          const allowed = ['duckduckgo', 'google', 'bing', 'brave', 'startpage', 'ecosia'];
-          if (allowed.includes(patch[key])) settingsStore.data[key] = patch[key];
-        } else if (key === 'theme') {
-          const allowed = ['purple', 'blue', 'green', 'orange', 'pink'];
-          if (allowed.includes(patch[key])) settingsStore.data[key] = patch[key];
-        } else if (key === 'animations' || key === 'restoreSession' || key === 'showBookmarkBar') {
-          settingsStore.data[key] = Boolean(patch[key]);
+      if (!(key in patch)) continue;
+
+      if (key === 'homepage') {
+        const v = String(patch[key] || '');
+        if (v === 'newtab' || /^https?:\/\//i.test(v)) {
+          settingsStore.data[key] = v;
         }
+      } else if (key === 'searchEngine') {
+        if (ALLOWED_ENGINES.includes(patch[key])) settingsStore.data[key] = patch[key];
+      } else if (key === 'theme') {
+        if (ALLOWED_THEMES.includes(patch[key])) settingsStore.data[key] = patch[key];
+      } else if (key === 'colorMode') {
+        if (ALLOWED_MODES.includes(patch[key])) settingsStore.data[key] = patch[key];
+      } else if (BOOL_KEYS.includes(key)) {
+        settingsStore.data[key] = Boolean(patch[key]);
       }
     }
 
@@ -519,6 +632,23 @@ function registerIpc() {
 }
 
 // ============================================================
+//  LIVE PERFORMANCE METRICS (opt-in via NIDDLE_METRICS=1)
+// ============================================================
+function startMetrics() {
+  setInterval(() => {
+    const metrics = app.getAppMetrics();
+    const totalMB = metrics.reduce((s, m) => s + (m.memory?.workingSetSize || 0), 0) / 1024;
+    console.log(`\n═══ NIDDLE · ${metrics.length} processes · ${totalMB.toFixed(0)} MB total ═══`);
+    console.table(metrics.map(m => ({
+      type:   m.type,
+      pid:    m.pid,
+      MB:     +(((m.memory?.workingSetSize || 0) / 1024).toFixed(1)),
+      'CPU%': +((m.cpu?.percentCPUUsage || 0).toFixed(1)),
+    })));
+  }, 5000);
+}
+
+// ============================================================
 //  APP LIFECYCLE
 // ============================================================
 app.whenReady().then(() => {
@@ -528,6 +658,8 @@ app.whenReady().then(() => {
   attachDownloadListener(session.defaultSession);
   registerIpc();
   createWindow();
+
+    startMetrics();
 });
 
 app.on('window-all-closed', () => {
@@ -536,6 +668,13 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});
+
+app.on('before-quit', () => {
+  if (settingsStore?.data?.clearHistoryOnExit) {
+    historyStore.data = [];
+    historyStore.save();
+  }
 });
 
 process.on('uncaughtException', (err) => console.error('[uncaught]', err));

@@ -6,7 +6,7 @@ const ALLOWED_LISTEN = [
   'ctx:back', 'ctx:forward', 'ctx:reload',
   'ctx:inspect', 'ctx:open-link-new-tab', 'ctx:search-text',
   'bookmarks:update', 'downloads:update', 'downloads:auto-open',
-  'settings:update',
+  'settings:update', 'history:update',
   'open-new-tab'
 ];
 
@@ -56,6 +56,9 @@ contextBridge.exposeInMainWorld('browserAPI', {
   settingsGet:   ()      => ipcRenderer.invoke('settings:get'),
   settingsSet:   (patch) => ipcRenderer.invoke('settings:set', patch),
   settingsReset: ()      => ipcRenderer.invoke('settings:reset'),
+
+  // clear browsing data
+  clearData: (kind) => ipcRenderer.invoke('browser:clear-data', kind),
 
   // shell
   openPath: (p) => ipcRenderer.invoke('shell:openPath', p),

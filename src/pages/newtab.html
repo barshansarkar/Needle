@@ -1,121 +1,625 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <link rel="preconnect" href="https://duckduckgo.com">
-<link rel="dns-prefetch" href="https://duckduckgo.com">
-<link rel="preconnect" href="https://youtube.com">
-<link rel="preconnect" href="https://github.com">
+  <link rel="dns-prefetch" href="https://duckduckgo.com">
+  <link rel="preconnect" href="https://youtube.com">
+  <link rel="preconnect" href="https://github.com">
   <title>New Tab</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
       font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
-      background: #0a0a0f; color: #e8e8f0;
-      height: 100vh; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
+      background: #0a0a0f;
+      color: #ededf2;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       overflow: hidden;
+      -webkit-font-smoothing: antialiased;
     }
+
     body::before {
       content: '';
-      position: fixed; inset: -50%;
+      position: fixed;
+      inset: -30%;
       background:
-        radial-gradient(circle at 20% 20%, rgba(124,92,255,0.15), transparent 40%),
-        radial-gradient(circle at 80% 80%, rgba(255,92,208,0.12), transparent 40%);
-      animation: drift 20s ease-in-out infinite alternate;
+        radial-gradient(600px circle at 20% 20%, rgba(139,92,246,0.14), transparent 55%),
+        radial-gradient(700px circle at 80% 80%, rgba(236,72,153,0.10), transparent 55%);
+      animation: drift 22s ease-in-out infinite alternate;
       z-index: -1;
+      filter: blur(10px);
     }
     @keyframes drift { to { transform: translate(2%, 2%) scale(1.05); } }
+
     h1 {
-      font-size: 64px; font-weight: 800; letter-spacing: -2px;
-      background: linear-gradient(135deg, #7c5cff, #ff5cd0);
-      -webkit-background-clip: text; background-clip: text;
-      color: transparent; margin-bottom: 8px;
-      text-shadow: 0 0 60px rgba(124,92,255,0.4);
+      font-size: 66px;
+      font-weight: 800;
+      letter-spacing: -2.5px;
+      background: linear-gradient(135deg, #a78bfa, #e879f9);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 10px;
+      text-shadow: 0 0 80px rgba(167,139,250,0.35);
     }
-    .tag { color: #7a7a8c; font-size: 14px; margin-bottom: 40px; }
+
+    .tag {
+      color: #62626f;
+      font-size: 13.5px;
+      margin-bottom: 44px;
+      letter-spacing: 0.01em;
+    }
+
+    .search-wrap {
+      position: relative;
+      width: min(580px, 82vw);
+      z-index: 10;
+    }
+
     .search {
-      width: min(560px, 80vw);
-      height: 52px; display: flex; align-items: center; gap: 12px;
-      padding: 0 20px; border-radius: 999px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      transition: all .25s;
+      width: 100%;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 22px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.06);
+      transition: all .25s cubic-bezier(.4,0,.2,1);
     }
+
     .search:focus-within {
-      border-color: #7c5cff;
-      box-shadow: 0 0 0 4px rgba(124,92,255,0.15), 0 0 30px rgba(124,92,255,0.4);
-      background: rgba(255,255,255,0.06);
+      border-color: rgba(167,139,250,0.55);
+      background: rgba(255,255,255,0.055);
+      box-shadow:
+        0 0 0 4px rgba(167,139,250,0.12),
+        0 0 40px rgba(167,139,250,0.28);
     }
+
+    .search .search-icon {
+      width: 18px;
+      height: 18px;
+      color: #62626f;
+      flex-shrink: 0;
+      transition: color .2s ease;
+    }
+    .search:focus-within .search-icon { color: #a78bfa; }
+
     .search input {
-      flex: 1; background: transparent; border: none; outline: none;
-      color: #e8e8f0; font-size: 15px; font-family: inherit;
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #ededf2;
+      font-size: 15px;
+      font-family: inherit;
+      font-weight: 450;
+      letter-spacing: 0.005em;
     }
-    .search input::placeholder { color: #7a7a8c; }
-    .search .icon { font-size: 18px; opacity: 0.7; }
+    .search input::placeholder { color: #52525b; font-weight: 400; }
+
+    .search kbd {
+      font-family: inherit;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #52525b;
+      padding: 3px 7px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      letter-spacing: 0.04em;
+      transition: opacity .2s ease;
+    }
+    .search:focus-within kbd { opacity: 0; }
+
+    .suggestions {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      background: rgba(20, 20, 26, 0.96);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(167, 139, 250, 0.28);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.7),
+        0 0 40px rgba(167, 139, 250, 0.18);
+      animation: dropIn .16s cubic-bezier(.4, 0, .2, 1);
+      max-height: 400px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .suggestions.show { display: block; }
+
+    .suggestions::-webkit-scrollbar { width: 6px; }
+    .suggestions::-webkit-scrollbar-thumb {
+      background: rgba(167, 139, 250, 0.4);
+      border-radius: 3px;
+    }
+
+    @keyframes dropIn {
+      from { opacity: 0; transform: translateY(-6px) scale(0.99); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+
+    .sug-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 18px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #ededf2;
+      transition: background .1s ease;
+      user-select: none;
+    }
+
+    .sug-item:hover,
+    .sug-item.active {
+      background: linear-gradient(90deg,
+        rgba(167, 139, 250, 0.22),
+        rgba(232, 121, 249, 0.12));
+    }
+
+    .sug-item .sug-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      color: #62626f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sug-item.active .sug-icon,
+    .sug-item:hover .sug-icon { color: #a78bfa; }
+
+    .sug-item .sug-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sug-item .sug-text b {
+      color: #c4b5fd;
+      font-weight: 700;
+    }
+
+    .sug-item .sug-type {
+      font-size: 10px;
+      font-weight: 600;
+      color: #52525b;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 3px 7px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .sug-item.active .sug-type {
+      background: rgba(167, 139, 250, 0.28);
+      color: #ddd6fe;
+    }
+
     .shortcuts {
-      display: flex; gap: 14px; margin-top: 60px;
-      flex-wrap: wrap; justify-content: center;
+      display: flex;
+      gap: 14px;
+      margin-top: 64px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 720px;
     }
+
     .sc {
-      width: 90px; height: 90px; border-radius: 18px;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 6px; text-decoration: none; color: #e8e8f0;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.05);
-      transition: all .25s; cursor: pointer; font-size: 11px;
+      width: 96px;
+      height: 96px;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      text-decoration: none;
+      color: #ededf2;
+      background: rgba(255,255,255,0.028);
+      border: 1px solid rgba(255,255,255,0.055);
+      transition: all .25s cubic-bezier(.4,0,.2,1);
+      cursor: pointer;
+      font-size: 11.5px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
     }
     .sc:hover {
-      background: linear-gradient(135deg, rgba(124,92,255,0.25), rgba(255,92,208,0.15));
-      border-color: rgba(124,92,255,0.5);
+      background: linear-gradient(135deg,
+        rgba(167,139,250,0.16),
+        rgba(232,121,249,0.10));
+      border-color: rgba(167,139,250,0.38);
       transform: translateY(-4px);
-      box-shadow: 0 10px 30px rgba(124,92,255,0.3);
+      box-shadow:
+        0 16px 40px -12px rgba(167,139,250,0.4),
+        0 0 0 1px rgba(167,139,250,0.08) inset;
     }
-    .sc .ico { font-size: 28px; }
+    .sc:active { transform: translateY(-1px) scale(0.98); }
+
+    .sc-icon {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--brand, #a78bfa);
+      transition: transform .25s cubic-bezier(.4,0,.2,1);
+    }
+    .sc:hover .sc-icon { transform: scale(1.12); }
+    .sc-icon svg { width: 100%; height: 100%; display: block; }
+
+    .sc-name { color: #a1a1aa; transition: color .2s ease; }
+    .sc:hover .sc-name { color: #ededf2; }
+
+    /* ── DEBUG BADGE — remove once suggestions work ── */
+    #debug-badge {
+      position: fixed;
+      bottom: 12px;
+      right: 12px;
+      max-width: 480px;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.75);
+      color: #a1a1aa;
+      font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+      font-size: 10.5px;
+      line-height: 1.5;
+      border-radius: 8px;
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      z-index: 99999;
+      white-space: pre-wrap;
+      word-break: break-all;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
-  <h1>Nova</h1>
+  <h1>NIDDLE</h1>
   <div class="tag">Search the web, beautifully.</div>
 
-  <div class="search">
-    <span class="icon">🔍</span>
-    <input id="q" type="text" placeholder="Search DuckDuckGo or type a URL…" autofocus />
+  <div class="search-wrap">
+    <div class="search">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/>
+        <path d="m20 20-3.5-3.5"/>
+      </svg>
+      <input id="q" type="text" placeholder="Search DuckDuckGo or type a URL"
+             autofocus spellcheck="false" autocomplete="off" />
+      <kbd>CTRL L</kbd>
+    </div>
+
+    <div class="suggestions" id="suggestions"></div>
   </div>
 
   <div class="shortcuts" id="shortcuts"></div>
 
+  <!-- DEBUG BADGE -->
+  <div id="debug-badge">debug: initializing</div>
+
   <script>
+    // ═══════════════ DEBUG ═══════════════
+    const badge = document.getElementById('debug-badge');
+    const debugLines = [];
+    function debug(msg) {
+      const ts = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      debugLines.push(`[${ts}] ${msg}`);
+      if (debugLines.length > 8) debugLines.shift();
+      badge.textContent = debugLines.join('\n');
+      try { console.log('[niddle]', msg); } catch {}
+    }
+
+    window.addEventListener('error', (e) => {
+      debug('ERROR: ' + (e.message || e.error?.message || 'unknown'));
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      debug('PROMISE REJECT: ' + (e.reason?.message || String(e.reason)));
+    });
+
+    // ═══════════════ ICONS ═══════════════
+    const ICON_SEARCH = `
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/>
+        <path d="m20 20-3.5-3.5"/>
+      </svg>`;
+
+    const ICON_GLOBE = `
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none"
+           stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M3 12h18"/>
+        <path d="M12 3a14 14 0 0 1 0 18"/>
+        <path d="M12 3a14 14 0 0 0 0 18"/>
+      </svg>`;
+
+    // ═══════════════ ELEMENTS ═══════════════
     const q = document.getElementById('q');
-    q.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const v = q.value.trim();
-        if (!v) return;
-        const isUrl = /^(https?:\/\/)|^[\w-]+\.[\w.-]+/.test(v);
-        const url = isUrl
-          ? (v.startsWith('http') ? v : 'https://' + v)
-          : 'https://duckduckgo.com/?q=' + encodeURIComponent(v);
+    const suggestEl = document.getElementById('suggestions');
+
+    // ═══════════════ STATE ═══════════════
+        let currentQuery = '';
+  let suggestItems = [];
+  let suggestIndex = -1;
+  let debounce = null;
+  let reqId = 0;
+  let latestReqId = 0;
+
+    // ═══════════════ HELPERS ═══════════════
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+
+    function looksLikeUrl(v) {
+      return /^(https?:\/\/)|^[\w-]+\.[\w.-]+/.test(v);
+    }
+
+    function sendNavigate(input) {
+      if (!input) return;
+      const v = String(input).trim();
+      if (!v) return;
+
+      let url;
+      if (looksLikeUrl(v)) {
+        url = v.startsWith('http') ? v : 'https://' + v;
+      } else {
+        url = v;
+      }
+
+      debug('navigate: ' + url.slice(0, 60));
+
+      try {
         window.parent?.postMessage({ type: 'nova-navigate', url }, '*');
+      } catch (e) {
+        debug('postMessage(nav) failed: ' + e.message);
+      }
+      try {
+        console.log('__NOVA_NAVIGATE__' + JSON.stringify({ url }));
+      } catch {}
+    }
+
+    // ═══════════════ REQUEST SUGGESTIONS ═══════════════
+        function requestSuggestions(query) {
+      const id = ++reqId;
+      latestReqId = id;
+      debug(`typing: "${query}" (req ${id})`);
+
+      // Channel 1 — postMessage
+      let sent1 = false;
+      try {
+        window.parent?.postMessage({
+          type: 'nova-suggest',
+          query,
+          reqId: id,
+        }, '*');
+        sent1 = true;
+      } catch (e) {
+        debug('  postMessage failed: ' + e.message);
+      }
+
+      // Channel 2 — console.log backup
+      let sent2 = false;
+      try {
+        console.log('__NOVA_SUGGEST__' + JSON.stringify({ query, reqId: id }));
+        sent2 = true;
+      } catch (e) {
+        debug('  console.log failed: ' + e.message);
+      }
+
+      if (sent1 || sent2) {
+        debug(`  sent via ${[sent1 && 'postMessage', sent2 && 'console'].filter(Boolean).join(' + ')}`);
+      } else {
+        debug('  SEND FAILED on both channels');
+      }
+    }
+
+    // ═══════════════ RECEIVE FROM HOST ═══════════════
+    // Host calls this via webview.executeJavaScript()
+    window.__novaHostMessage = function (payload) {
+      if (!payload || typeof payload !== 'object') return;
+
+      const stage = payload.stage || 'unknown';
+
+      if (stage === 'received') {
+        debug('  host received req ' + payload.reqId);
+        return;
+      }
+
+            if (stage === 'results') {
+        const count = Array.isArray(payload.items) ? payload.items.length : 0;
+        debug(`  host returned ${count} item${count === 1 ? '' : 's'}`);
+        if (payload.reqId !== latestReqId) {
+          debug(`  stale (req ${payload.reqId}, latest ${latestReqId})`);
+          return;
+        }
+        renderSuggestions(payload.items || [], payload.query);
+        return;
+      }
+
+      if (stage === 'error') {
+        debug('  host error: ' + (payload.reason || 'unknown'));
+        return;
+      }
+    };
+
+    // Legacy name kept so old code doesn't break
+    window.__novaSuggestionCallback = window.__novaHostMessage;
+
+    // ═══════════════ RENDER SUGGESTIONS ═══════════════
+    function renderSuggestions(items, query) {
+      suggestItems = items || [];
+      suggestIndex = -1;
+
+      if (!suggestItems.length) {
+        suggestEl.classList.remove('show');
+        suggestEl.innerHTML = '';
+        return;
+      }
+
+      const ql = query.toLowerCase();
+
+      suggestEl.innerHTML = suggestItems.map((s, i) => {
+        const lower = String(s).toLowerCase();
+        const idx = lower.indexOf(ql);
+        let html = escapeHtml(s);
+
+        if (idx >= 0) {
+          html =
+            escapeHtml(String(s).slice(0, idx)) +
+            '<b>' + escapeHtml(String(s).slice(idx, idx + ql.length)) + '</b>' +
+            escapeHtml(String(s).slice(idx + ql.length));
+        }
+
+        const icon = looksLikeUrl(s) ? ICON_GLOBE : ICON_SEARCH;
+        const type = looksLikeUrl(s) ? 'URL' : 'Search';
+
+        return `
+          <div class="sug-item" data-idx="${i}" data-value="${encodeURIComponent(s)}">
+            <span class="sug-icon">${icon}</span>
+            <span class="sug-text">${html}</span>
+            <span class="sug-type">${type}</span>
+          </div>
+        `;
+      }).join('');
+
+      suggestEl.classList.add('show');
+      debug('  rendered ' + suggestItems.length + ' suggestions');
+
+      suggestEl.querySelectorAll('.sug-item').forEach(el => {
+        el.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          const value = decodeURIComponent(el.dataset.value);
+          sendNavigate(value);
+          hideSuggestions();
+          q.blur();
+        });
+      });
+    }
+
+    function hideSuggestions() {
+      suggestEl.classList.remove('show');
+      suggestEl.innerHTML = '';
+      suggestItems = [];
+      suggestIndex = -1;
+    }
+
+    function setActive(idx) {
+      const items = suggestEl.querySelectorAll('.sug-item');
+      items.forEach((el, i) => el.classList.toggle('active', i === idx));
+      suggestIndex = idx;
+      if (idx >= 0 && items[idx]) items[idx].scrollIntoView({ block: 'nearest' });
+    }
+
+    // ═══════════════ INPUT — TYPING ═══════════════
+    q.addEventListener('input', () => {
+      const v = q.value.trim();
+      currentQuery = v;
+      clearTimeout(debounce);
+
+      if (!v || v.length < 2) {
+        hideSuggestions();
+        return;
+      }
+      if (looksLikeUrl(v)) {
+        hideSuggestions();
+        return;
+      }
+
+      debounce = setTimeout(() => requestSuggestions(v), 110);
+    });
+
+    // ═══════════════ INPUT — KEYS ═══════════════
+    q.addEventListener('keydown', (e) => {
+      const open = suggestEl.classList.contains('show');
+
+      if (e.key === 'ArrowDown' && open && suggestItems.length) {
+        e.preventDefault();
+        setActive((suggestIndex + 1) % suggestItems.length);
+        return;
+      }
+
+      if (e.key === 'ArrowUp' && open && suggestItems.length) {
+        e.preventDefault();
+        setActive((suggestIndex - 1 + suggestItems.length) % suggestItems.length);
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (suggestIndex >= 0 && suggestItems[suggestIndex]) {
+          sendNavigate(suggestItems[suggestIndex]);
+        } else {
+          sendNavigate(q.value);
+        }
+        hideSuggestions();
+        q.blur();
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        hideSuggestions();
+        q.blur();
       }
     });
 
-    const defaults = [
-      { name: 'YouTube', url: 'https://youtube.com', ico: '▶' },
-      { name: 'GitHub',  url: 'https://github.com',  ico: '🐙' },
-      { name: 'Reddit',  url: 'https://reddit.com',  ico: '👽' },
-      { name: 'Gmail',   url: 'https://mail.google.com', ico: '✉' },
-      { name: 'X',       url: 'https://x.com',       ico: '𝕏' },
-      { name: 'ChatGPT', url: 'https://chat.openai.com', ico: '✨' }
+    q.addEventListener('focus', () => {
+      if (q.value.trim().length >= 2 && suggestItems.length) {
+        suggestEl.classList.add('show');
+      }
+    });
+
+    q.addEventListener('blur', () => {
+      setTimeout(hideSuggestions, 120);
+    });
+
+    // ═══════════════ SHORTCUTS ═══════════════
+    const SHORTCUTS = [
+      { name: 'YouTube', url: 'https://youtube.com', brand: '#ff3d3d',
+        svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.5a3 3 0 0 0-2.1-2.1C19.5 3.9 12 3.9 12 3.9s-7.5 0-9.4.5A3 3 0 0 0 .5 6.5 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.5 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1 31 31 0 0 0 .5-5.5 31 31 0 0 0-.5-5.5ZM9.6 15.6V8.4l6.2 3.6-6.2 3.6Z"/></svg>' },
+      { name: 'GitHub', url: 'https://github.com', brand: '#e5e7eb',
+        svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg>' },
+      { name: 'Reddit', url: 'https://reddit.com', brand: '#ff4500',
+        svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm5.5 10a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm-7.5 4c1.4 1.3 4.6 1.3 6 0 .2-.2.5-.1.6.1s.1.5-.1.6c-1.8 1.7-5.3 1.7-7 0-.2-.2-.2-.5-.1-.6.2-.2.5-.2.6-.1Zm-3.5-4a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm10.4-3.5a2 2 0 1 0-1.5-3.3l-1.3 3.1a6 6 0 0 1 2.8.2Z"/></svg>' },
+      { name: 'Gmail', url: 'https://mail.google.com', brand: '#ea4335',
+        svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>' },
+      { name: 'X', url: 'https://x.com', brand: '#e5e7eb',
+        svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.2 2.3h3.3l-7.3 8.3 8.6 11.1h-6.7l-5.3-6.8-6 6.8H1.4l7.8-8.9L1 2.3h6.9l4.8 6.2 5.5-6.2Zm-1.1 17.5h1.8L7 4.1H5l12.1 15.7Z"/></svg>' },
+      { name: 'ChatGPT', url: 'https://chat.openai.com', brand: '#10a37f',
+        svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3.5 4.8 7.7v8.5L12 20.5l7.2-4.3V7.7L12 3.5Z"/><path d="M12 12 4.8 7.7M12 12l7.2-4.3M12 12v8.5"/></svg>' }
     ];
-    document.getElementById('shortcuts').innerHTML = defaults.map(s => `
+
+    document.getElementById('shortcuts').innerHTML = SHORTCUTS.map(s => `
       <div class="sc" data-url="${s.url}">
-        <span class="ico">${s.ico}</span>
-        <span>${s.name}</span>
+        <span class="sc-icon" style="--brand:${s.brand}">${s.svg}</span>
+        <span class="sc-name">${s.name}</span>
       </div>
     `).join('');
+
     document.querySelectorAll('.sc').forEach(el => {
-      el.onclick = () => window.parent?.postMessage({ type: 'nova-navigate', url: el.dataset.url }, '*');
+      el.addEventListener('click', () => {
+        const url = el.dataset.url;
+        try {
+          window.parent?.postMessage({ type: 'nova-navigate', url }, '*');
+        } catch {}
+        try {
+          console.log('__NOVA_NAVIGATE__' + JSON.stringify({ url }));
+        } catch {}
+      });
     });
+
+    debug('ready — type 2+ chars to test suggestions');
   </script>
 </body>
 </html>
