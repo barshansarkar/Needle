@@ -109,7 +109,7 @@
   <div id="bookmark-bar" class="bookmark-bar"></div>
 
   <!-- ═══════════ SUGGESTIONS ═══════════ -->
-  <div id="suggestions" class="suggestions hidden"></div>
+  <div id="suggestions" class="suggestions hidden" style="z-index: 999;"></div>
 
   <!-- ═══════════ FIND BAR ═══════════ -->
   <div id="findbar" class="findbar hidden">
@@ -144,34 +144,8 @@
   </div>
 
   <!-- ═══════════ WEBVIEWS ═══════════ -->
-  <div id="views" class="views"></div>
+  <!-- <div id="views" class="views"></div> -->
 
   <script src="renderer.js"></script>
 </body>
 </html>
-<script>
-  const tabsEl = document.querySelector('.tabs');
-
-function updateTabFade() {
-  const { scrollLeft, scrollWidth, clientWidth } = tabsEl;
-  const atStart = scrollLeft <= 1;
-  const atEnd   = scrollLeft + clientWidth >= scrollWidth - 1;
-
-  tabsEl.dataset.fadeLeft  = atStart ? 'off' : 'on';
-  tabsEl.dataset.fadeRight = atEnd   ? 'off' : 'on';
-}
-
-tabsEl.addEventListener('scroll', updateTabFade, { passive: true });
-new ResizeObserver(updateTabFade).observe(tabsEl);
-new MutationObserver(updateTabFade).observe(tabsEl, { childList: true });
-updateTabFade();
-
-
-// Pause background animations when the tab is not visible
-document.addEventListener('visibilitychange', () => {
-  document.body.style.setProperty(
-    'animation-play-state',
-    document.hidden ? 'paused' : 'running'
-  );
-});
-</script>

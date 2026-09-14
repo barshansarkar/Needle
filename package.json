@@ -2,7 +2,7 @@
   "name": "niddle-browser",
   "productName": "Nova",
   "version": "1.0.0",
-    "description": "A sexy modern web browser",
+  "description": "A sexy modern web browser",
   "main": "main.js",
   "author": {
     "name": "Barshan",
@@ -26,12 +26,10 @@
     "appId": "com.barshan.nova",
     "productName": "Nova",
     "copyright": "Copyright © 2025 Barshan",
-
     "directories": {
       "output": "dist",
       "buildResources": "build"
     },
-
     "files": [
       "main.js",
       "preload.js",
@@ -48,19 +46,32 @@
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
-
     "extraResources": [
       {
         "from": "build/icon.png",
         "to": "icon.png"
       }
     ],
-
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["x64"] },
-        { "target": "deb", "arch": ["x64"] },
-        { "target": "tar.gz", "arch": ["x64"] }
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.png",
       "category": "Network",
@@ -68,12 +79,26 @@
       "description": "Nova is a fast, beautiful web browser built with Electron.",
       "executableName": "nova-browser"
     },
-
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] },
-        { "target": "zip", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.ico",
       "fileAssociations": [
@@ -84,7 +109,6 @@
         }
       ]
     },
-
     "nsis": {
       "oneClick": false,
       "perMachine": false,
@@ -93,9 +117,12 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Nova"
     },
-
     "compression": "maximum",
     "removePackageScripts": true,
     "asar": true
+  },
+  "dependencies": {
+    "@ghostery/adblocker-electron": "^2.18.2",
+    "cross-fetch": "^4.1.0"
   }
 }

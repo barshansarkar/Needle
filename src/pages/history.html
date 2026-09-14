@@ -1108,7 +1108,7 @@
         el.addEventListener('click', (e) => {
           if (e.target.closest('.del')) return;
           const url = decodeURIComponent(el.dataset.url);
-          window.parent?.postMessage({ type: 'nova-navigate', url }, '*');
+          window.novaAPI?.navigate(url);
         });
 
         el.querySelector('.del').addEventListener('click', async (e) => {

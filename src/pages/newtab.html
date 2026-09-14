@@ -264,24 +264,7 @@
     .sc:hover .sc-name { color: #ededf2; }
 
     /* ── DEBUG BADGE — remove once suggestions work ── */
-    #debug-badge {
-      position: fixed;
-      bottom: 12px;
-      right: 12px;
-      max-width: 480px;
-      padding: 8px 12px;
-      background: rgba(0, 0, 0, 0.75);
-      color: #a1a1aa;
-      font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-      font-size: 10.5px;
-      line-height: 1.5;
-      border-radius: 8px;
-      border: 1px solid rgba(139, 92, 246, 0.4);
-      z-index: 99999;
-      white-space: pre-wrap;
-      word-break: break-all;
-      pointer-events: none;
-    }
+    
   </style>
 </head>
 <body>
@@ -305,321 +288,132 @@
 
   <div class="shortcuts" id="shortcuts"></div>
 
-  <!-- DEBUG BADGE -->
-  <div id="debug-badge">debug: initializing</div>
 
-  <script>
-    // ═══════════════ DEBUG ═══════════════
-    const badge = document.getElementById('debug-badge');
-    const debugLines = [];
-    function debug(msg) {
-      const ts = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      debugLines.push(`[${ts}] ${msg}`);
-      if (debugLines.length > 8) debugLines.shift();
-      badge.textContent = debugLines.join('\n');
-      try { console.log('[niddle]', msg); } catch {}
-    }
 
-    window.addEventListener('error', (e) => {
-      debug('ERROR: ' + (e.message || e.error?.message || 'unknown'));
-    });
-    window.addEventListener('unhandledrejection', (e) => {
-      debug('PROMISE REJECT: ' + (e.reason?.message || String(e.reason)));
-    });
+ <script>
+  const ICON_SEARCH = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`;
+  const ICON_GLOBE  = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg>`;
 
-    // ═══════════════ ICONS ═══════════════
-    const ICON_SEARCH = `
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none"
-           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="7"/>
-        <path d="m20 20-3.5-3.5"/>
-      </svg>`;
+  const q = document.getElementById('q');
+  const suggestEl = document.getElementById('suggestions');
 
-    const ICON_GLOBE = `
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none"
-           stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="9"/>
-        <path d="M3 12h18"/>
-        <path d="M12 3a14 14 0 0 1 0 18"/>
-        <path d="M12 3a14 14 0 0 0 0 18"/>
-      </svg>`;
-
-    // ═══════════════ ELEMENTS ═══════════════
-    const q = document.getElementById('q');
-    const suggestEl = document.getElementById('suggestions');
-
-    // ═══════════════ STATE ═══════════════
-        let currentQuery = '';
   let suggestItems = [];
   let suggestIndex = -1;
   let debounce = null;
   let reqId = 0;
   let latestReqId = 0;
 
-    // ═══════════════ HELPERS ═══════════════
-    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => (
-      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-    ));
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+  const looksLikeUrl = (v) => /^(https?:\/\/)|^[\w-]+\.[\w.-]+/.test(v);
 
-    function looksLikeUrl(v) {
-      return /^(https?:\/\/)|^[\w-]+\.[\w.-]+/.test(v);
+  function sendNavigate(input) {
+    const v = String(input || '').trim();
+    if (!v) return;
+    const url = looksLikeUrl(v) && !v.startsWith('http') ? 'https://' + v : v;
+    try { window.novaAPI?.navigate(url); } catch {}
+  }
+
+  async function requestSuggestions(query) {
+    const id = ++reqId;
+    latestReqId = id;
+    try {
+      const items = await window.novaAPI?.suggest(query);
+      if (id !== latestReqId) return;
+      renderSuggestions(items || [], query);
+    } catch {
+      if (id === latestReqId) hideSuggestions();
     }
+  }
 
-    function sendNavigate(input) {
-      if (!input) return;
-      const v = String(input).trim();
-      if (!v) return;
-
-      let url;
-      if (looksLikeUrl(v)) {
-        url = v.startsWith('http') ? v : 'https://' + v;
-      } else {
-        url = v;
+  function renderSuggestions(items, query) {
+    suggestItems = items || [];
+    suggestIndex = -1;
+    if (!suggestItems.length) { hideSuggestions(); return; }
+    const ql = query.toLowerCase();
+    suggestEl.innerHTML = suggestItems.map((s, i) => {
+      const lower = String(s).toLowerCase();
+      const idx = lower.indexOf(ql);
+      let html = escapeHtml(s);
+      if (idx >= 0) {
+        html = escapeHtml(String(s).slice(0, idx)) +
+               '<b>' + escapeHtml(String(s).slice(idx, idx + ql.length)) + '</b>' +
+               escapeHtml(String(s).slice(idx + ql.length));
       }
-
-      debug('navigate: ' + url.slice(0, 60));
-
-      try {
-        window.parent?.postMessage({ type: 'nova-navigate', url }, '*');
-      } catch (e) {
-        debug('postMessage(nav) failed: ' + e.message);
-      }
-      try {
-        console.log('__NOVA_NAVIGATE__' + JSON.stringify({ url }));
-      } catch {}
-    }
-
-    // ═══════════════ REQUEST SUGGESTIONS ═══════════════
-        function requestSuggestions(query) {
-      const id = ++reqId;
-      latestReqId = id;
-      debug(`typing: "${query}" (req ${id})`);
-
-      // Channel 1 — postMessage
-      let sent1 = false;
-      try {
-        window.parent?.postMessage({
-          type: 'nova-suggest',
-          query,
-          reqId: id,
-        }, '*');
-        sent1 = true;
-      } catch (e) {
-        debug('  postMessage failed: ' + e.message);
-      }
-
-      // Channel 2 — console.log backup
-      let sent2 = false;
-      try {
-        console.log('__NOVA_SUGGEST__' + JSON.stringify({ query, reqId: id }));
-        sent2 = true;
-      } catch (e) {
-        debug('  console.log failed: ' + e.message);
-      }
-
-      if (sent1 || sent2) {
-        debug(`  sent via ${[sent1 && 'postMessage', sent2 && 'console'].filter(Boolean).join(' + ')}`);
-      } else {
-        debug('  SEND FAILED on both channels');
-      }
-    }
-
-    // ═══════════════ RECEIVE FROM HOST ═══════════════
-    // Host calls this via webview.executeJavaScript()
-    window.__novaHostMessage = function (payload) {
-      if (!payload || typeof payload !== 'object') return;
-
-      const stage = payload.stage || 'unknown';
-
-      if (stage === 'received') {
-        debug('  host received req ' + payload.reqId);
-        return;
-      }
-
-            if (stage === 'results') {
-        const count = Array.isArray(payload.items) ? payload.items.length : 0;
-        debug(`  host returned ${count} item${count === 1 ? '' : 's'}`);
-        if (payload.reqId !== latestReqId) {
-          debug(`  stale (req ${payload.reqId}, latest ${latestReqId})`);
-          return;
-        }
-        renderSuggestions(payload.items || [], payload.query);
-        return;
-      }
-
-      if (stage === 'error') {
-        debug('  host error: ' + (payload.reason || 'unknown'));
-        return;
-      }
-    };
-
-    // Legacy name kept so old code doesn't break
-    window.__novaSuggestionCallback = window.__novaHostMessage;
-
-    // ═══════════════ RENDER SUGGESTIONS ═══════════════
-    function renderSuggestions(items, query) {
-      suggestItems = items || [];
-      suggestIndex = -1;
-
-      if (!suggestItems.length) {
-        suggestEl.classList.remove('show');
-        suggestEl.innerHTML = '';
-        return;
-      }
-
-      const ql = query.toLowerCase();
-
-      suggestEl.innerHTML = suggestItems.map((s, i) => {
-        const lower = String(s).toLowerCase();
-        const idx = lower.indexOf(ql);
-        let html = escapeHtml(s);
-
-        if (idx >= 0) {
-          html =
-            escapeHtml(String(s).slice(0, idx)) +
-            '<b>' + escapeHtml(String(s).slice(idx, idx + ql.length)) + '</b>' +
-            escapeHtml(String(s).slice(idx + ql.length));
-        }
-
-        const icon = looksLikeUrl(s) ? ICON_GLOBE : ICON_SEARCH;
-        const type = looksLikeUrl(s) ? 'URL' : 'Search';
-
-        return `
-          <div class="sug-item" data-idx="${i}" data-value="${encodeURIComponent(s)}">
-            <span class="sug-icon">${icon}</span>
-            <span class="sug-text">${html}</span>
-            <span class="sug-type">${type}</span>
-          </div>
-        `;
-      }).join('');
-
-      suggestEl.classList.add('show');
-      debug('  rendered ' + suggestItems.length + ' suggestions');
-
-      suggestEl.querySelectorAll('.sug-item').forEach(el => {
-        el.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          const value = decodeURIComponent(el.dataset.value);
-          sendNavigate(value);
-          hideSuggestions();
-          q.blur();
-        });
-      });
-    }
-
-    function hideSuggestions() {
-      suggestEl.classList.remove('show');
-      suggestEl.innerHTML = '';
-      suggestItems = [];
-      suggestIndex = -1;
-    }
-
-    function setActive(idx) {
-      const items = suggestEl.querySelectorAll('.sug-item');
-      items.forEach((el, i) => el.classList.toggle('active', i === idx));
-      suggestIndex = idx;
-      if (idx >= 0 && items[idx]) items[idx].scrollIntoView({ block: 'nearest' });
-    }
-
-    // ═══════════════ INPUT — TYPING ═══════════════
-    q.addEventListener('input', () => {
-      const v = q.value.trim();
-      currentQuery = v;
-      clearTimeout(debounce);
-
-      if (!v || v.length < 2) {
-        hideSuggestions();
-        return;
-      }
-      if (looksLikeUrl(v)) {
-        hideSuggestions();
-        return;
-      }
-
-      debounce = setTimeout(() => requestSuggestions(v), 110);
-    });
-
-    // ═══════════════ INPUT — KEYS ═══════════════
-    q.addEventListener('keydown', (e) => {
-      const open = suggestEl.classList.contains('show');
-
-      if (e.key === 'ArrowDown' && open && suggestItems.length) {
+      const icon = looksLikeUrl(s) ? ICON_GLOBE : ICON_SEARCH;
+      const type = looksLikeUrl(s) ? 'URL' : 'Search';
+      return `<div class="sug-item" data-idx="${i}" data-value="${encodeURIComponent(s)}">
+        <span class="sug-icon">${icon}</span>
+        <span class="sug-text">${html}</span>
+        <span class="sug-type">${type}</span>
+      </div>`;
+    }).join('');
+    suggestEl.classList.add('show');
+    suggestEl.querySelectorAll('.sug-item').forEach(el => {
+      el.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        setActive((suggestIndex + 1) % suggestItems.length);
-        return;
-      }
-
-      if (e.key === 'ArrowUp' && open && suggestItems.length) {
-        e.preventDefault();
-        setActive((suggestIndex - 1 + suggestItems.length) % suggestItems.length);
-        return;
-      }
-
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if (suggestIndex >= 0 && suggestItems[suggestIndex]) {
-          sendNavigate(suggestItems[suggestIndex]);
-        } else {
-          sendNavigate(q.value);
-        }
-        hideSuggestions();
-        q.blur();
-        return;
-      }
-
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        hideSuggestions();
-        q.blur();
-      }
-    });
-
-    q.addEventListener('focus', () => {
-      if (q.value.trim().length >= 2 && suggestItems.length) {
-        suggestEl.classList.add('show');
-      }
-    });
-
-    q.addEventListener('blur', () => {
-      setTimeout(hideSuggestions, 120);
-    });
-
-    // ═══════════════ SHORTCUTS ═══════════════
-    const SHORTCUTS = [
-      { name: 'YouTube', url: 'https://youtube.com', brand: '#ff3d3d',
-        svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.5a3 3 0 0 0-2.1-2.1C19.5 3.9 12 3.9 12 3.9s-7.5 0-9.4.5A3 3 0 0 0 .5 6.5 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.5 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1 31 31 0 0 0 .5-5.5 31 31 0 0 0-.5-5.5ZM9.6 15.6V8.4l6.2 3.6-6.2 3.6Z"/></svg>' },
-      { name: 'GitHub', url: 'https://github.com', brand: '#e5e7eb',
-        svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg>' },
-      { name: 'Reddit', url: 'https://reddit.com', brand: '#ff4500',
-        svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm5.5 10a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm-7.5 4c1.4 1.3 4.6 1.3 6 0 .2-.2.5-.1.6.1s.1.5-.1.6c-1.8 1.7-5.3 1.7-7 0-.2-.2-.2-.5-.1-.6.2-.2.5-.2.6-.1Zm-3.5-4a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm10.4-3.5a2 2 0 1 0-1.5-3.3l-1.3 3.1a6 6 0 0 1 2.8.2Z"/></svg>' },
-      { name: 'Gmail', url: 'https://mail.google.com', brand: '#ea4335',
-        svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>' },
-      { name: 'X', url: 'https://x.com', brand: '#e5e7eb',
-        svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.2 2.3h3.3l-7.3 8.3 8.6 11.1h-6.7l-5.3-6.8-6 6.8H1.4l7.8-8.9L1 2.3h6.9l4.8 6.2 5.5-6.2Zm-1.1 17.5h1.8L7 4.1H5l12.1 15.7Z"/></svg>' },
-      { name: 'ChatGPT', url: 'https://chat.openai.com', brand: '#10a37f',
-        svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3.5 4.8 7.7v8.5L12 20.5l7.2-4.3V7.7L12 3.5Z"/><path d="M12 12 4.8 7.7M12 12l7.2-4.3M12 12v8.5"/></svg>' }
-    ];
-
-    document.getElementById('shortcuts').innerHTML = SHORTCUTS.map(s => `
-      <div class="sc" data-url="${s.url}">
-        <span class="sc-icon" style="--brand:${s.brand}">${s.svg}</span>
-        <span class="sc-name">${s.name}</span>
-      </div>
-    `).join('');
-
-    document.querySelectorAll('.sc').forEach(el => {
-      el.addEventListener('click', () => {
-        const url = el.dataset.url;
-        try {
-          window.parent?.postMessage({ type: 'nova-navigate', url }, '*');
-        } catch {}
-        try {
-          console.log('__NOVA_NAVIGATE__' + JSON.stringify({ url }));
-        } catch {}
+        sendNavigate(decodeURIComponent(el.dataset.value));
+        hideSuggestions(); q.blur();
       });
     });
+  }
 
-    debug('ready — type 2+ chars to test suggestions');
-  </script>
+  function hideSuggestions() {
+    suggestEl.classList.remove('show');
+    suggestEl.innerHTML = '';
+    suggestItems = []; suggestIndex = -1;
+  }
+  function setActive(idx) {
+    const items = suggestEl.querySelectorAll('.sug-item');
+    items.forEach((el, i) => el.classList.toggle('active', i === idx));
+    suggestIndex = idx;
+    if (idx >= 0 && items[idx]) items[idx].scrollIntoView({ block: 'nearest' });
+  }
+
+  q.addEventListener('input', () => {
+    const v = q.value.trim();
+    clearTimeout(debounce);
+    if (!v || v.length < 2 || looksLikeUrl(v)) { hideSuggestions(); return; }
+    debounce = setTimeout(() => requestSuggestions(v), 110);
+  });
+
+  q.addEventListener('keydown', (e) => {
+    const open = suggestEl.classList.contains('show');
+    if (e.key === 'ArrowDown' && open && suggestItems.length) {
+      e.preventDefault(); setActive((suggestIndex + 1) % suggestItems.length); return;
+    }
+    if (e.key === 'ArrowUp' && open && suggestItems.length) {
+      e.preventDefault(); setActive((suggestIndex - 1 + suggestItems.length) % suggestItems.length); return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (suggestIndex >= 0 && suggestItems[suggestIndex]) sendNavigate(suggestItems[suggestIndex]);
+      else sendNavigate(q.value);
+      hideSuggestions(); q.blur(); return;
+    }
+    if (e.key === 'Escape') { e.preventDefault(); hideSuggestions(); q.blur(); }
+  });
+  q.addEventListener('blur', () => setTimeout(hideSuggestions, 120));
+
+  const SHORTCUTS = [
+    { name:'YouTube', url:'https://youtube.com', brand:'#ff3d3d', svg:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.5a3 3 0 0 0-2.1-2.1C19.5 3.9 12 3.9 12 3.9s-7.5 0-9.4.5A3 3 0 0 0 .5 6.5 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.5 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1 31 31 0 0 0 .5-5.5 31 31 0 0 0-.5-5.5ZM9.6 15.6V8.4l6.2 3.6-6.2 3.6Z"/></svg>' },
+    { name:'GitHub',  url:'https://github.com',  brand:'#e5e7eb', svg:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg>' },
+    { name:'Reddit',  url:'https://reddit.com',  brand:'#ff4500', svg:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm5.5 10a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm-7.5 4c1.4 1.3 4.6 1.3 6 0 .2-.2.5-.1.6.1s.1.5-.1.6c-1.8 1.7-5.3 1.7-7 0-.2-.2-.2-.5-.1-.6.2-.2.5-.2.6-.1Zm-3.5-4a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm10.4-3.5a2 2 0 1 0-1.5-3.3l-1.3 3.1a6 6 0 0 1 2.8.2Z"/></svg>' },
+    { name:'Gmail',   url:'https://mail.google.com', brand:'#ea4335', svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>' },
+    { name:'X',       url:'https://x.com', brand:'#e5e7eb', svg:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.2 2.3h3.3l-7.3 8.3 8.6 11.1h-6.7l-5.3-6.8-6 6.8H1.4l7.8-8.9L1 2.3h6.9l4.8 6.2 5.5-6.2Zm-1.1 17.5h1.8L7 4.1H5l12.1 15.7Z"/></svg>' },
+    { name:'ChatGPT', url:'https://chat.openai.com', brand:'#10a37f', svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3.5 4.8 7.7v8.5L12 20.5l7.2-4.3V7.7L12 3.5Z"/><path d="M12 12 4.8 7.7M12 12l7.2-4.3M12 12v8.5"/></svg>' },
+  ];
+
+  document.getElementById('shortcuts').innerHTML = SHORTCUTS.map(s => `
+    <div class="sc" data-url="${s.url}">
+      <span class="sc-icon" style="--brand:${s.brand}">${s.svg}</span>
+      <span class="sc-name">${s.name}</span>
+    </div>`).join('');
+
+  document.querySelectorAll('.sc').forEach(el => {
+    el.addEventListener('click', () => sendNavigate(el.dataset.url));
+  });
+</script>
 </body>
 </html>

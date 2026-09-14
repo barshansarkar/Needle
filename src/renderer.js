@@ -1,85 +1,28 @@
-// ============================================================
+// ════════════════════════════════════════════════════════════════
+//  NIDDLE · renderer.js  v8
+//  Optimistic close — UI updates instantly, main informed after
+// ════════════════════════════════════════════════════════════════
+console.log('%cNIDDLE renderer v8 loaded', 'color:#8b5cf6;font-weight:bold');
+
+// ────────────────────────────────────────────────────────────────
 //  CONFIG
-// ============================================================
-const DEBUG = false;
-const dlog = (...args) => { if (DEBUG) console.log('[niddle]', ...args); };
+// ────────────────────────────────────────────────────────────────
+const MAX_NAV_URL_LEN     = 8192;
+const MAX_SUGGEST_QUERY   = 256;
+const MAX_SUGGEST_ITEMS   = 10;
+const SUGGEST_TTL_MS      = 5 * 60 * 1000;
+const SUGGEST_CACHE_MAX   = 100;
 
-const TAB_SLEEP_MS = 5 * 60 * 1000;   // 5 minutes
-const TAB_SLEEP_TICK = 30 * 1000;     // check every 30s
-
-// ============================================================
-//  ICONS
-// ============================================================
-const ICONS = {
-  favicon: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg>`,
-  loading: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.56"/><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.85s" repeatCount="indefinite"/></svg>`,
-  secure: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>`,
-  internal: `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2.5 13.8 7.7 19 9.5l-5.2 1.8L12 16.5 10.2 11.3 5 9.5l5.2-1.8z"/><path d="M19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z" opacity=".7"/></svg>`,
-  close: `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>`,
-  search: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
-  bookmark: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1v16l-7-4-7 4v-16a1 1 0 0 1 1-1z"/></svg>`,
-  starEmpty: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3.5 14.7 9l6.1.9-4.4 4.3 1 6L12 17.5 6.6 20.2l1-6L3.2 9.9 9.3 9z"/></svg>`,
-  starFilled: `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3.5 14.7 9l6.1.9-4.4 4.3 1 6L12 17.5 6.6 20.2l1-6L3.2 9.9 9.3 9z"/></svg>`,
-};
-
-// ============================================================
-//  DOM
-// ============================================================
-const tabsEl        = document.getElementById('tabs');
-const viewsEl       = document.getElementById('views');
-const urlInput      = document.getElementById('url');
-const findbar       = document.getElementById('findbar');
-const findInput     = document.getElementById('find-input');
-const findCount     = document.getElementById('find-count');
-const zoomBadge     = document.getElementById('zoom-reset');
-const starBtn       = document.getElementById('star');
-const bookmarkBar   = document.getElementById('bookmark-bar');
-const suggestionsEl = document.getElementById('suggestions');
-const settingsBtn   = document.getElementById('settings-btn');
-const dlToast       = document.getElementById('dl-toast');
-const dlToastText   = document.getElementById('dl-toast-text');
-const dlToastOpen   = document.getElementById('dl-toast-open');
-const dlToastClose  = document.getElementById('dl-toast-close');
-
-// ============================================================
-//  STATE
-// ============================================================
-let tabs = [];
-let activeId = null;
-let bookmarks = [];
-let downloadsCache = [];
-let saveTimer = null;
-let currentSettings = null;
-
-const isPrivate = window.browserAPI?.isPrivate === true;
-const PRIVATE_PARTITION = isPrivate ? 'private-' + crypto.randomUUID() : null;
-
-const BASE = window.location.href.replace(/\/[^/]*$/, '');
-const PAGE = (name) => `${BASE}/pages/${name}.html`;
-const NEWTAB_URL    = PAGE('newtab');
-const HISTORY_URL   = PAGE('history');
-const DOWNLOADS_URL = PAGE('downloads');
-const SETTINGS_URL  = PAGE('settings');
-
-let webviewPreloadPath = null;
-const preloadReady = browserAPI
-  .webviewPreloadPath()
-  .then((p) => { webviewPreloadPath = p; })
-  .catch(() => { webviewPreloadPath = null; });
-
-// ============================================================
-//  CONSTANTS
-// ============================================================
-const SEARCH_ENGINES = {
+const SEARCH_ENGINES = Object.freeze({
   duckduckgo: 'https://duckduckgo.com/?q=',
   google:     'https://www.google.com/search?q=',
   bing:       'https://www.bing.com/search?q=',
   brave:      'https://search.brave.com/search?q=',
   startpage:  'https://www.startpage.com/sp/search?query=',
   ecosia:     'https://www.ecosia.org/search?q=',
-};
+});
 
-const THEMES = {
+const THEMES = Object.freeze({
   purple: { accent: '#8b5cf6', accent2: '#ec4899' },
   blue:   { accent: '#3b82f6', accent2: '#06b6d4' },
   green:  { accent: '#10b981', accent2: '#84cc16' },
@@ -88,90 +31,209 @@ const THEMES = {
   red:    { accent: '#ef4444', accent2: '#f97316' },
   slate:  { accent: '#64748b', accent2: '#94a3b8' },
   mono:   { accent: '#e5e5e5', accent2: '#a1a1aa' },
-};
+});
 
-// ============================================================
+const BLOCKED_PROTOCOLS = new Set(['javascript:', 'data:', 'blob:', 'vbscript:', 'filesystem:']);
+
+// ────────────────────────────────────────────────────────────────
+//  ICONS
+// ────────────────────────────────────────────────────────────────
+const ICONS = Object.freeze({
+  favicon:  `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg>`,
+  loading:  `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.56"/><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.85s" repeatCount="indefinite"/></svg>`,
+  secure:   `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>`,
+  internal: `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2.5 13.8 7.7 19 9.5l-5.2 1.8L12 16.5 10.2 11.3 5 9.5l5.2-1.8z"/><path d="M19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z" opacity=".7"/></svg>`,
+  close:    `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>`,
+  search:   `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
+  bookmark: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1v16l-7-4-7 4v-16a1 1 0 0 1 1-1z"/></svg>`,
+  starEmpty:`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3.5 14.7 9l6.1.9-4.4 4.3 1 6L12 17.5 6.6 20.2l1-6L3.2 9.9 9.3 9z"/></svg>`,
+  starFilled:`<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3.5 14.7 9l6.1.9-4.4 4.3 1 6L12 17.5 6.6 20.2l1-6L3.2 9.9 9.3 9z"/></svg>`,
+});
+
+// ────────────────────────────────────────────────────────────────
 //  HELPERS
-// ============================================================
-const activeTab  = () => tabs.find(t => t.id === activeId);
-const activeView = () => activeTab()?.view;
-const isInternalPage = (url) => typeof url === 'string' && url.includes('/src/pages/');
-const isNewTabUrl = (url) => typeof url === 'string' && url.includes('newtab');
+// ────────────────────────────────────────────────────────────────
+const isStr    = (v, max = MAX_NAV_URL_LEN) => typeof v === 'string' && v.length > 0 && v.length <= max;
+const isObj    = (v) => v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype;
+
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
-function getHomepageUrl() {
-  const s = currentSettings;
-  if (!s || s.homepage === 'newtab') return NEWTAB_URL;
-  return s.homepage;
-}
-
-// ============================================================
-//  GUEST → HOST BRIDGE
-// ============================================================
-function sendToGuest(view, payload) {
-  if (!view) return;
-  const json = JSON.stringify(payload).replace(/</g, '\\u003c');
+function safeUrl(raw) {
+  if (!isStr(raw)) return null;
   try {
-    const p = view.executeJavaScript(
-      `window.__novaHostMessage && window.__novaHostMessage(${json});`
-    );
-    if (p && typeof p.catch === 'function') p.catch(() => {});
-  } catch (err) {
-    dlog('bridge executeJavaScript failed', err);
-  }
+    const u = new URL(raw);
+    if (BLOCKED_PROTOCOLS.has(u.protocol)) return null;
+    return u.href;
+  } catch { return null; }
+}
+function isBlockedProtocol(raw) {
+  if (!isStr(raw)) return true;
+  try { return BLOCKED_PROTOCOLS.has(new URL(raw).protocol); }
+  catch { return true; }
+}
+function safeTabUrl(tab) {
+  if (!tab || typeof tab.url !== 'string') return '';
+  return tab.url.length > MAX_NAV_URL_LEN ? tab.url.slice(0, MAX_NAV_URL_LEN) : tab.url;
+}
+function isNewTabUrl(url) {
+  return isStr(url) && url.includes('/newtab');
+}
+function looksLikeUrl(v) {
+  return typeof v === 'string' && /^(https?:\/\/)|^[\w-]+\.[\w.-]+/.test(v);
 }
 
-function handleSuggestRequest(view, query, reqId) {
-  dlog('handleSuggestRequest', query, reqId);
-  sendToGuest(view, { stage: 'received', query, reqId });
+// ────────────────────────────────────────────────────────────────
+//  DOM REFS
+// ────────────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
 
-  if (!query || query.length < 2) {
-    sendToGuest(view, { stage: 'error', reason: 'query too short', query, reqId });
-    return;
-  }
-  if (currentSettings?.suggestions === false) {
-    sendToGuest(view, { stage: 'error', reason: 'suggestions disabled', query, reqId });
-    return;
-  }
+const tabsEl        = $('tabs');
+const urlInput      = $('url');
+const findbar       = $('findbar');
+const findInput     = $('find-input');
+const findCount     = $('find-count');
+const zoomBadge     = $('zoom-reset');
+const starBtn       = $('star');
+const bookmarkBar   = $('bookmark-bar');
+const suggestionsEl = $('suggestions');
+const settingsBtn   = $('settings-btn');
+const dlToast       = $('dl-toast');
+const dlToastText   = $('dl-toast-text');
+const dlToastOpen   = $('dl-toast-open');
+const dlToastClose  = $('dl-toast-close');
 
-  browserAPI.searchSuggest(query)
-    .then((items) => {
-      const arr = Array.isArray(items) ? items : [];
-      dlog('suggest results:', arr.length);
-      sendToGuest(view, { stage: 'results', query, reqId, items: arr });
+// ────────────────────────────────────────────────────────────────
+//  STATE
+// ────────────────────────────────────────────────────────────────
+const state = {
+  tabs: [],
+  activeId: null,
+  bookmarks: [],
+  downloads: [],
+  settings: null,
+  toastTimer: null,
+};
+
+const isPrivate = window.browserAPI?.isPrivate === true;
+
+// ────────────────────────────────────────────────────────────────
+//  INTERNAL PAGE URLS
+// ────────────────────────────────────────────────────────────────
+const BASE = window.location.href.replace(/\/[^/]*$/, '');
+const PAGE = (name) => `${BASE}/pages/${name}.html`;
+const HISTORY_URL   = PAGE('history');
+const DOWNLOADS_URL = PAGE('downloads');
+const SETTINGS_URL  = PAGE('settings');
+
+const activeTab = () => state.tabs.find(t => t.id === state.activeId);
+
+// ────────────────────────────────────────────────────────────────
+//  SUGGESTION CACHE
+// ────────────────────────────────────────────────────────────────
+const suggestCache = new Map();
+const recentQueries = [];
+
+function cacheGet(q) {
+  const hit = suggestCache.get(q);
+  if (!hit) return null;
+  if (Date.now() - hit.ts > SUGGEST_TTL_MS) { suggestCache.delete(q); return null; }
+  suggestCache.delete(q);
+  suggestCache.set(q, hit);
+  return hit.items;
+}
+function cacheSet(q, items) {
+  suggestCache.set(q, { items, ts: Date.now() });
+  while (suggestCache.size > SUGGEST_CACHE_MAX) {
+    const oldest = suggestCache.keys().next().value;
+    suggestCache.delete(oldest);
+  }
+}
+function rememberQuery(q) {
+  const i = recentQueries.indexOf(q);
+  if (i !== -1) recentQueries.splice(i, 1);
+  recentQueries.unshift(q);
+  if (recentQueries.length > 10) recentQueries.pop();
+}
+function clearSuggestionCache() {
+  suggestCache.clear();
+  recentQueries.length = 0;
+}
+
+async function fetchSuggestionsDirect(query) {
+  const ql = query.toLowerCase();
+  const [ddg, gg] = await Promise.all([
+    fetch(`https://duckduckgo.com/ac/?q=${encodeURIComponent(query)}`, {
+      headers: { 'Accept': 'application/json' },
     })
-    .catch((err) => {
-      sendToGuest(view, { stage: 'error', reason: String(err?.message || err), query, reqId });
-    });
-}
-
-function handleNavigateRequest(url) {
-  if (!url) return;
-  const t = activeTab();
-  if (t && t.isInternal && isNewTabUrl(t.view.getURL() || '')) {
-    navigateTab(t, url);
-  } else {
-    createTab(url, { activate: !currentSettings?.backgroundTabs });
+      .then(r => r.json())
+      .then(d => Array.isArray(d)
+        ? d.map(x => typeof x === 'string' ? x : x?.phrase).filter(Boolean)
+        : [])
+      .catch(() => []),
+    fetch(`https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}`, {
+      headers: { 'Accept': 'application/json' },
+    })
+      .then(r => r.json())
+      .then(d => Array.isArray(d) && Array.isArray(d[1]) ? d[1].filter(Boolean) : [])
+      .catch(() => []),
+  ]);
+  const seen = new Set([ql]);
+  const out = [];
+  for (const item of [...ddg, ...gg]) {
+    const s = String(item).trim();
+    if (!s) continue;
+    const key = s.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+    if (out.length >= MAX_SUGGEST_ITEMS) break;
   }
+  return out;
 }
 
-// ============================================================
-//  SETTINGS
-// ============================================================
+// ────────────────────────────────────────────────────────────────
+//  CHROME HEIGHT REPORTING
+// ────────────────────────────────────────────────────────────────
+function measureChromeHeight() {
+  let h = 0;
+  for (const sel of ['.chrome-top', '.chrome-toolbar', '.bookmark-bar']) {
+    const el = document.querySelector(sel);
+    if (!el) continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+    const r = el.getBoundingClientRect();
+    if (r.height > 0 && r.bottom > h) h = r.bottom;
+  }
+  return Math.ceil(h);
+}
+function reportChromeBounds() {
+  try { browserAPI.setChromeBounds({ height: measureChromeHeight() }); } catch {}
+}
+const chromeRO = new ResizeObserver(reportChromeBounds);
+for (const sel of ['.chrome-top', '.chrome-toolbar', '.bookmark-bar']) {
+  const el = document.querySelector(sel);
+  if (el) chromeRO.observe(el);
+}
+window.addEventListener('resize', reportChromeBounds);
+
+// ────────────────────────────────────────────────────────────────
+//  THEME / SETTINGS
+// ────────────────────────────────────────────────────────────────
 function applyTheme(themeName) {
   const t = THEMES[themeName] || THEMES.purple;
-  document.documentElement.style.setProperty('--accent', t.accent);
-  document.documentElement.style.setProperty('--accent-2', t.accent2);
   const r = parseInt(t.accent.slice(1, 3), 16);
   const g = parseInt(t.accent.slice(3, 5), 16);
   const b = parseInt(t.accent.slice(5, 7), 16);
-  document.documentElement.style.setProperty('--glow', `0 0 24px rgba(${r}, ${g}, ${b}, 0.45)`);
+  const root = document.documentElement.style;
+  root.setProperty('--accent', t.accent);
+  root.setProperty('--accent-2', t.accent2);
+  root.setProperty('--glow', `0 0 24px rgba(${r}, ${g}, ${b}, 0.45)`);
 }
-
 function applySettings(s) {
-  currentSettings = s;
+  if (!isObj(s)) return;
+  state.settings = s;
   applyTheme(s.theme);
   document.body.classList.toggle('no-animations',   s.animations === false);
   document.body.classList.toggle('hide-bookmarks',  s.showBookmarkBar === false);
@@ -179,401 +241,414 @@ function applySettings(s) {
   document.body.classList.toggle('compact-tabs',    s.compactTabs === true);
   document.body.classList.toggle('mode-darker',     s.colorMode === 'darker');
   document.body.classList.toggle('mode-system',     s.colorMode === 'system');
+  requestAnimationFrame(reportChromeBounds);
 }
 
-async function loadSettings() {
-  try {
-    const s = await browserAPI.settingsGet();
-    applySettings(s);
-  } catch (e) {
-    console.warn('settings load failed', e);
+// ────────────────────────────────────────────────────────────────
+//  URL NORMALIZATION
+// ────────────────────────────────────────────────────────────────
+function normalizeUrl(input) {
+  let url = String(input || '').trim();
+  if (!url) return null;
+  if (url.length > MAX_NAV_URL_LEN) url = url.slice(0, MAX_NAV_URL_LEN);
+  if (!looksLikeUrl(url)) {
+    const engine = state.settings?.searchEngine || 'duckduckgo';
+    const prefix = SEARCH_ENGINES[engine] || SEARCH_ENGINES.duckduckgo;
+    return prefix + encodeURIComponent(url);
   }
+  if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+  return safeUrl(url);
 }
 
-browserAPI.on('settings:update', (s) => applySettings(s));
-
-// ============================================================
+// ────────────────────────────────────────────────────────────────
 //  WINDOW CONTROLS
-// ============================================================
-document.getElementById('min-btn').onclick   = () => browserAPI.minimize();
-document.getElementById('max-btn').onclick   = () => browserAPI.maximize();
-document.getElementById('close-btn').onclick = () => {
-  if (currentSettings?.confirmCloseAll && tabs.length > 1) {
-    if (!confirm(`Close all ${tabs.length} tabs?`)) return;
+// ────────────────────────────────────────────────────────────────
+$('min-btn').onclick   = () => browserAPI.minimize();
+$('max-btn').onclick   = () => browserAPI.maximize();
+$('close-btn').onclick = () => {
+  if (state.settings?.confirmCloseAll && state.tabs.length > 1) {
+    if (!confirm(`Close all ${state.tabs.length} tabs?`)) return;
   }
   browserAPI.close();
 };
 
-if (isPrivate) document.getElementById('private-badge').classList.remove('hidden');
+if (isPrivate) $('private-badge').classList.remove('hidden');
 
-// ============================================================
-//  SHORTCUTS
-// ============================================================
-function handleShortcut({ ctrl, shift, alt, key, preventDefault }) {
-  const k = String(key || '').toLowerCase();
-  if (!k) return false;
-
-  if (ctrl && shift && k === 'n') { preventDefault(); browserAPI.openIncognito(); return true; }
-
-  if (ctrl && !shift && k === 't') { preventDefault(); createTab(); return true; }
-  if (ctrl && !shift && k === 'w') { preventDefault(); if (activeId) closeTab(activeId); return true; }
-  if (ctrl && k === 'tab' && !shift) {
-    preventDefault();
-    if (tabs.length > 1) {
-      const i = tabs.findIndex(t => t.id === activeId);
-      activateTab(tabs[(i + 1) % tabs.length].id);
-    }
-    return true;
-  }
-  if (ctrl && k === 'tab' && shift) {
-    preventDefault();
-    if (tabs.length > 1) {
-      const i = tabs.findIndex(t => t.id === activeId);
-      activateTab(tabs[(i - 1 + tabs.length) % tabs.length].id);
-    }
-    return true;
-  }
-
-  if (ctrl && !shift && k === 'l') { preventDefault(); urlInput.focus(); urlInput.select(); return true; }
-  if (ctrl && !shift && k === 'r') { preventDefault(); activeView()?.reload(); return true; }
-  if (ctrl && shift && k === 'r') { preventDefault(); activeView()?.reloadIgnoringCache(); return true; }
-  if (ctrl && !shift && k === 'f') { preventDefault(); showFindBar(); return true; }
-
-  if (ctrl && !shift && k === 'h') { preventDefault(); document.getElementById('history-btn').click(); return true; }
-  if (ctrl && !shift && k === 'j') { preventDefault(); document.getElementById('downloads-btn').click(); return true; }
-  if (ctrl && !shift && k === 'd') { preventDefault(); starBtn.click(); return true; }
-  if (ctrl && k === ',') { preventDefault(); settingsBtn.click(); return true; }
-
-  if (ctrl && (k === '=' || k === '+')) { preventDefault(); zoomIn(); return true; }
-  if (ctrl && k === '-') { preventDefault(); zoomOut(); return true; }
-  if (ctrl && k === '0') { preventDefault(); zoomReset(); return true; }
-
-  if (k === 'f12') { preventDefault(); activeView()?.openDevTools(); return true; }
-  if (ctrl && shift && k === 'i') { preventDefault(); activeView()?.openDevTools(); return true; }
-
-  if (alt && !ctrl && k === 'arrowleft')  { preventDefault(); const v = activeView(); if (v?.canGoBack())    v.goBack();    return true; }
-  if (alt && !ctrl && k === 'arrowright') { preventDefault(); const v = activeView(); if (v?.canGoForward()) v.goForward(); return true; }
-
-  return false;
-}
-
+// ────────────────────────────────────────────────────────────────
+//  KEYBOARD
+// ────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
-  handleShortcut({
-    ctrl:  e.ctrlKey || e.metaKey,
-    shift: e.shiftKey,
-    alt:   e.altKey,
-    key:   e.key,
-    preventDefault: () => e.preventDefault(),
-  });
+  if (e.key === 'Escape' && document.activeElement === urlInput) {
+    hideSuggestions();
+    urlInput.blur();
+  }
 }, true);
 
-// ============================================================
-//  TAB CREATION
-// ============================================================
-const MAX_TABS = 40;
+// ════════════════════════════════════════════════════════════════
+//  TAB STRIP — full rebuild every render
+// ════════════════════════════════════════════════════════════════
+let dragState = null;
 
-function createTab(url, { activate = true, record = true } = {}) {
-  if (tabs.length >= MAX_TABS) {
-    dlog('tab limit reached');
-    return null;
+function renderTabStrip() {
+  if (dragState) return;   // don't destroy the element mid-drag
+
+  tabsEl.replaceChildren();
+
+  for (const t of state.tabs) {
+    const el = document.createElement('div');
+    el.className = 'tab';
+    el.dataset.id = t.id;
+    if (t.id === state.activeId) el.classList.add('active');
+    if (t.sleeping) el.classList.add('sleeping');
+
+    let favHtml = ICONS.secure;
+    if (t.isLoading)          favHtml = ICONS.loading;
+    else if (t.isInternal)    favHtml = ICONS.internal;
+    else if (t.favicon)       favHtml = `<img src="${escapeHtml(t.favicon)}" alt="" style="width:14px;height:14px;border-radius:2px" onerror="this.remove()">`;
+
+    const label = t.title || (isNewTabUrl(t.url) ? 'New Tab' : (t.url || 'New Tab'));
+
+    el.innerHTML =
+      `<span class="favicon">${favHtml}</span>` +
+      `<span class="title">${escapeHtml(label)}</span>` +
+      `<span class="close" role="button" aria-label="Close tab" title="Close tab">${ICONS.close}</span>`;
+
+    tabsEl.appendChild(el);
   }
-  if (!url) url = getHomepageUrl();
-
-  const id = crypto.randomUUID();
-
-  const view = document.createElement('webview');
-  view.setAttribute('allowpopups', '');
-  view.className = 'tab-view';
-  view.setAttribute('partition', isPrivate ? PRIVATE_PARTITION : 'persist:main');
-
-  const internal = isInternalPage(url);
-  if (internal && webviewPreloadPath) {
-    view.setAttribute('preload', webviewPreloadPath);
-  }
-
-  const tabEl = document.createElement('div');
-  tabEl.className = 'tab';
-  tabEl.dataset.id = id;
-  tabEl.innerHTML = `
-    <span class="favicon">${ICONS.favicon}</span>
-    <span class="title">New Tab</span>
-    <span class="close" title="Close tab">${ICONS.close}</span>
-  `;
-  tabEl.querySelector('.close').onclick = (e) => {
-    e.stopPropagation();
-    closeTab(id);
-  };
-  tabEl.onclick = () => activateTab(id);
-  tabsEl.appendChild(tabEl);
-
-  const tab = {
-    id, view, el: tabEl,
-    title: 'New Tab',
-    url,
-    zoom: 0,
-    isInternal: internal,
-    sleeping: false,
-    savedUrl: null,
-    lastActive: Date.now(),
-    pinned: false,
-  };
-  tabs.push(tab);
-
-  // ── Keyboard forwarding ──
-  view.addEventListener('before-input-event', (event) => {
-    const input = event.input || event;
-    if (!input || input.type !== 'keyDown') return;
-    if (input.isAutoRepeat) return;
-
-    handleShortcut({
-      ctrl:  !!(input.control || input.meta),
-      shift: !!input.shift,
-      alt:   !!input.alt,
-      key:   input.key || '',
-      preventDefault: () => event.preventDefault?.(),
-    });
-  });
-
-  // ── Guest → Host via console-message ──
-  view.addEventListener('console-message', (...args) => {
-    let msg = '';
-    for (const a of args) {
-      if (typeof a === 'string' && a.indexOf('__NOVA_') === 0) {
-        msg = a;
-        break;
-      }
-      // New Electron API: event object with .message
-      if (a && typeof a === 'object' && typeof a.message === 'string' && a.message.indexOf('__NOVA_') === 0) {
-        msg = a.message;
-        break;
-      }
-    }
-    if (!msg) return;
-
-    if (msg.startsWith('__NOVA_SUGGEST__')) {
-      try {
-        const data = JSON.parse(msg.slice('__NOVA_SUGGEST__'.length));
-        if (data && typeof data.query === 'string') {
-          handleSuggestRequest(view, data.query, data.reqId);
-        }
-      } catch {}
-      return;
-    }
-
-    if (msg.startsWith('__NOVA_NAVIGATE__')) {
-      try {
-        const data = JSON.parse(msg.slice('__NOVA_NAVIGATE__'.length));
-        if (data && typeof data.url === 'string') {
-          handleNavigateRequest(data.url);
-        }
-      } catch {}
-      return;
-    }
-  });
-
-  // ── Lifecycle ──
-  view.addEventListener('did-start-loading', () => {
-    const f = tab.el?.querySelector('.favicon');
-    if (f) f.innerHTML = ICONS.loading;
-  });
-
-  view.addEventListener('did-stop-loading', () => {
-    const u = view.getURL();
-    tab.url = u;
-    tab.isInternal = isInternalPage(u);
-    const f = tab.el?.querySelector('.favicon');
-    if (f) f.innerHTML = tab.isInternal ? ICONS.internal : ICONS.secure;
-    if (activeId === id) {
-      urlInput.value = tab.isInternal ? '' : u;
-      updateStar();
-    }
-  });
-
-  view.addEventListener('page-title-updated', (e) => {
-    tab.title = e.title;
-    const t = tab.el?.querySelector('.title');
-    if (t) t.textContent = e.title;
-  });
-
-  view.addEventListener('did-navigate', (e) => {
-    // Skip sleep transition
-    if (e.url === 'about:blank') return;
-    // Skip while sleeping
-    if (tab.sleeping) return;
-
-    tab.url = e.url;
-    tab.isInternal = isInternalPage(e.url);
-    if (activeId === id) {
-      urlInput.value = tab.isInternal ? '' : e.url;
-      updateStar();
-    }
-    if (record && !tab.isInternal && !isPrivate) {
-      browserAPI.historyAdd({ url: e.url, title: view.getTitle() || e.url });
-    }
-    if (e.url !== NEWTAB_URL) saveSession();
-  });
-
-  view.addEventListener('did-navigate-in-page', (e) => {
-    if (tab.sleeping) return;
-    tab.url = e.url;
-    if (activeId === id && !tab.isInternal) urlInput.value = e.url;
-  });
-
-  view.addEventListener('context-menu', (e) => {
-    e.preventDefault();
-    browserAPI.showContextMenu({
-      x: e.params.x,
-      y: e.params.y,
-      linkURL: e.params.linkURL || '',
-      srcURL: e.params.srcURL || '',
-      selectionText: e.params.selectionText || '',
-      isEditable: e.params.isEditable,
-      editFlags: e.params.editFlags || {},
-    });
-  });
-
-  view.addEventListener('found-in-page', (e) => {
-    const { activeMatchOrdinal, matches } = e.result;
-    findCount.textContent = `${activeMatchOrdinal}/${matches}`;
-  });
-
-  viewsEl.appendChild(view);
-  view.setAttribute('src', url);
-
-  if (activate) activateTab(id);
-  return tab;
 }
 
-// ============================================================
-//  NAVIGATION
-// ============================================================
-function normalizeUrl(input) {
-  let url = String(input).trim();
-  if (!url) return null;
-  const looksLikeUrl = /^(https?:\/\/)|^[\w-]+\.[\w.-]+/.test(url);
-  if (!looksLikeUrl) {
-    const engine = currentSettings?.searchEngine || 'duckduckgo';
-    const prefix = SEARCH_ENGINES[engine] || SEARCH_ENGINES.duckduckgo;
-    return prefix + encodeURIComponent(url);
-  }
-  if (!/^https?:\/\//.test(url)) return 'https://' + url;
-  return url;
-}
+// ════════════════════════════════════════════════════════════════
+//  OPTIMISTIC CLOSE
+//  UI updates instantly — we don't wait for main to confirm.
+// ════════════════════════════════════════════════════════════════
+function closeTabLocal(id) {
+  if (!id) return;
+  const idx = state.tabs.findIndex(t => t.id === id);
+  if (idx === -1) return;
 
-function navigateTab(tab, rawUrl) {
-  if (!tab) return;
-  const url = normalizeUrl(rawUrl);
-  if (!url) return;
-  tab.view.loadURL(url);
-}
+  const wasActive = state.activeId === id;
 
-function navigate(input) {
-  const t = activeTab();
-  if (!t) return;
-  navigateTab(t, input);
-}
+  // 1) Remove from local state right away
+  state.tabs = state.tabs.filter(t => t.id !== id);
 
-// ============================================================
-//  TAB ACTIVATION · single unified function
-//  Handles: wake from sleep, focus, UI sync
-// ============================================================
-function activateTab(id) {
-  activeId = id;
-
-  const t = tabs.find(x => x.id === id);
-
-  // Wake sleeping tab BEFORE activating
-  let displayUrl = '';
-  if (t) {
-    t.lastActive = Date.now();
-
-    if (t.sleeping && t.savedUrl) {
-      const wakeUrl = t.savedUrl;
-      t.sleeping = false;
-      t.savedUrl = null;
-      try { t.view.loadURL(wakeUrl); } catch {}
-      displayUrl = wakeUrl;
+  // 2) If it was active, pick a neighbour locally and tell main to follow
+  if (wasActive) {
+    if (state.tabs.length === 0) {
+      state.activeId = null;
     } else {
-      try { displayUrl = t.view.getURL() || t.url || ''; }
-      catch { displayUrl = t.url || ''; }
+      const nextIdx = Math.min(idx, state.tabs.length - 1);
+      state.activeId = state.tabs[nextIdx].id;
+      try { browserAPI.tabActivate(state.activeId); } catch {}
     }
   }
 
-  tabs.forEach(x => {
-    const on = x.id === id;
-    x.el.classList.toggle('active', on);
-    x.view.classList.toggle('active', on);
-  });
+  // 3) Repaint — tab vanishes instantly
+  renderTabStrip();
+  updateActiveUI();
 
-  if (t) {
-    urlInput.value = t.isInternal ? '' : displayUrl;
-    updateZoomBadge(t.zoom);
-    updateStar();
+  // 4) Now inform main (fire-and-forget)
+  try { browserAPI.tabClose(id); }
+  catch (err) { console.error('[niddle] tabClose threw', err); }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  TAB EVENT DELEGATION  (one handler per event, no overlap)
+// ════════════════════════════════════════════════════════════════
+tabsEl.addEventListener('pointerdown', (e) => {
+  const tabEl    = e.target.closest ? e.target.closest('.tab')   : null;
+  const closeBtn = e.target.closest ? e.target.closest('.close') : null;
+  if (!tabEl) return;
+
+  // Close button — close IMMEDIATELY, don't wait for click
+  if (closeBtn) {
+    if (e.button !== 0 && e.button !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('[niddle] ✕ close', tabEl.dataset.id.slice(0,8));
+    closeTabLocal(tabEl.dataset.id);
+    return;
   }
+
+  // Body — start drag (click vs drag decided on pointerup)
+  if (e.button === 0) beginTabDrag(e, tabEl);
+}, true);
+
+tabsEl.addEventListener('click', (e) => {
+  const tabEl = e.target.closest ? e.target.closest('.tab') : null;
+  if (!tabEl) return;
+  if (e.target.closest('.close')) return;   // already handled by pointerdown
+  browserAPI.tabActivate(tabEl.dataset.id);
+}, true);
+
+tabsEl.addEventListener('auxclick', (e) => {
+  if (e.button !== 1) return;
+  const tabEl = e.target.closest ? e.target.closest('.tab') : null;
+  if (!tabEl) return;
+  e.preventDefault();
+  closeTabLocal(tabEl.dataset.id);
+}, true);
+
+// ════════════════════════════════════════════════════════════════
+//  MANUAL POINTER DRAG  (tab reorder)
+// ════════════════════════════════════════════════════════════════
+function beginTabDrag(downEv, tabEl) {
+  if (dragState) return;
+
+  const id = tabEl.dataset.id;
+  const startX = downEv.clientX;
+  const startY = downEv.clientY;
+  let moved = false;
+  let ghost = null;
+
+  dragState = { id, el: tabEl, ghost: null, moved: false };
+
+  function onMove(ev) {
+    if (!dragState) return;
+    const dx = ev.clientX - startX;
+    const dy = ev.clientY - startY;
+
+    if (!moved && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+      moved = true;
+      dragState.moved = true;
+      const rect = tabEl.getBoundingClientRect();
+      ghost = tabEl.cloneNode(true);
+      ghost.classList.add('tab-ghost');
+      Object.assign(ghost.style, {
+        position: 'fixed',
+        left: rect.left + 'px',
+        top: rect.top + 'px',
+        width: rect.width + 'px',
+        height: rect.height + 'px',
+        pointerEvents: 'none',
+        zIndex: '9999',
+      });
+      document.body.appendChild(ghost);
+      dragState.ghost = ghost;
+      tabEl.classList.add('dragging');
+      document.body.classList.add('tab-dragging');
+    }
+
+    if (!moved) return;
+
+    const rect = tabEl.getBoundingClientRect();
+    ghost.style.left = (rect.left + dx) + 'px';
+    ghost.style.top  = (rect.top  + dy) + 'px';
+
+    const others = [...tabsEl.querySelectorAll('.tab')].filter(x => x !== tabEl);
+    let insertBeforeEl = null;
+    for (const other of others) {
+      const r = other.getBoundingClientRect();
+      const mid = r.left + r.width / 2;
+      if (ev.clientX < mid) { insertBeforeEl = other; break; }
+    }
+    if (insertBeforeEl) tabsEl.insertBefore(tabEl, insertBeforeEl);
+    else                tabsEl.appendChild(tabEl);
+  }
+
+  function onUp() {
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+    try { tabEl.releasePointerCapture(downEv.pointerId); } catch {}
+
+    if (ghost) { ghost.remove(); ghost = null; }
+    tabEl.classList.remove('dragging');
+    document.body.classList.remove('tab-dragging');
+
+    const wasDrag = dragState && dragState.moved;
+    dragState = null;
+
+    if (wasDrag) {
+      const order = [...tabsEl.querySelectorAll('.tab')].map(x => x.dataset.id);
+      const byId = new Map(state.tabs.map(t => [t.id, t]));
+      const next = [];
+      for (const tid of order) { const t = byId.get(tid); if (t) next.push(t); }
+      for (const t of state.tabs) if (!order.includes(t.id)) next.push(t);
+      state.tabs = next;
+      const newIndex = order.indexOf(id);
+      if (newIndex >= 0) {
+        try { browserAPI.tabReorder(id, newIndex); }
+        catch (err) { console.error('[niddle] tabReorder threw', err); }
+      }
+    }
+  }
+
+  try { tabEl.setPointerCapture(downEv.pointerId); } catch {}
+
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointercancel', onUp);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  EVENTS FROM MAIN
+// ════════════════════════════════════════════════════════════════
+browserAPI.on('tab:created', (t) => {
+  if (!t || !t.id) return;
+  if (!state.tabs.some(x => x.id === t.id)) state.tabs.push(t);
+  renderTabStrip();
+});
+
+browserAPI.on('tab:updated', (t) => {
+  if (!t || !t.id) return;
+  const i = state.tabs.findIndex(x => x.id === t.id);
+  if (i === -1) state.tabs.push(t);
+  else state.tabs[i] = { ...state.tabs[i], ...t };
+  renderTabStrip();
+  if (t.id === state.activeId) updateActiveUI();
+});
+
+browserAPI.on('tab:closed', ({ id } = {}) => {
+  console.log('[niddle] tab:closed event:', id ? id.slice(0,8) : '?');
+  if (!id) return;
+  const before = state.tabs.length;
+  state.tabs = state.tabs.filter(x => x.id !== id);
+
+  // Main closed a tab we hadn't already removed — repaint
+  if (state.tabs.length !== before) {
+    if (state.activeId === id) {
+      // Main closed the active tab — main will also send tab:activated
+      state.activeId = null;
+    }
+    renderTabStrip();
+    updateActiveUI();
+  }
+});
+
+browserAPI.on('tab:activated', ({ id } = {}) => {
+  if (!id) return;
+  // Only accept activation for a tab we actually know about
+  if (!state.tabs.some(t => t.id === id)) {
+    // Unknown id — state is stale, request a fresh list
+    browserAPI.tabList().then((data) => {
+      if (!data) return;
+      state.tabs = Array.isArray(data.tabs) ? data.tabs : [];
+      state.activeId = data.activeId || null;
+      renderTabStrip();
+      updateActiveUI();
+    }).catch(() => {});
+    return;
+  }
+  state.activeId = id;
+  renderTabStrip();
+  updateActiveUI();
   hideFindBar();
   hideSuggestions();
+});
+
+browserAPI.on('tab:reordered', ({ order } = {}) => {
+  if (!Array.isArray(order)) return;
+  const byId = new Map(state.tabs.map(t => [t.id, t]));
+  const next = [];
+  for (const tid of order) { const t = byId.get(tid); if (t) next.push(t); }
+  for (const t of state.tabs) if (!order.includes(t.id)) next.push(t);
+  state.tabs = next;
+  renderTabStrip();
+});
+
+browserAPI.on('focus-url', () => {
+  urlInput.focus();
+  urlInput.select();
+});
+browserAPI.on('show-find', () => showFindBar());
+browserAPI.on('toggle-bookmark', () => starBtn.click());
+browserAPI.on('find:result', ({ activeMatchOrdinal = 0, matches = 0 } = {}) => {
+  findCount.textContent = `${activeMatchOrdinal}/${matches}`;
+});
+browserAPI.on('bookmarks:update', (list) => {
+  state.bookmarks = Array.isArray(list) ? list : [];
+  renderBookmarkBar();
+  updateStar();
+});
+browserAPI.on('downloads:update', (list) => {
+  state.downloads = Array.isArray(list) ? list : [];
+});
+browserAPI.on('downloads:auto-open', () => {
+  const latest = state.downloads[0];
+  if (!latest) return;
+  dlToastText.textContent = `Downloaded: ${latest.filename}`;
+  dlToastOpen.onclick = () => {
+    if (latest.savePath) browserAPI.openPath(latest.savePath);
+    dlToast.classList.add('hidden');
+  };
+  dlToast.classList.remove('hidden');
+  clearTimeout(state.toastTimer);
+  state.toastTimer = setTimeout(() => dlToast.classList.add('hidden'), 6000);
+});
+browserAPI.on('settings:update', (s) => {
+  applySettings(s);
+  if (s && s.suggestions === false) clearSuggestionCache();
+});
+browserAPI.on('history:update', () => {});
+
+browserAPI.onNewTab((url) => {
+  const safe = safeUrl(url);
+  if (!safe) return;
+  browserAPI.tabCreate({ url: safe, activate: !state.settings?.backgroundTabs });
+});
+
+// ════════════════════════════════════════════════════════════════
+//  TOOLBAR ACTIONS
+// ════════════════════════════════════════════════════════════════
+$('back').onclick    = () => { const t = activeTab(); if (t) browserAPI.tabAction(t.id, 'back'); };
+$('forward').onclick = () => { const t = activeTab(); if (t) browserAPI.tabAction(t.id, 'forward'); };
+$('reload').onclick  = () => { const t = activeTab(); if (t) browserAPI.tabAction(t.id, 'reload'); };
+$('new-tab').onclick = () => browserAPI.tabCreate();
+$('devtools').onclick = () => { const t = activeTab(); if (t) browserAPI.tabDevtools(t.id); };
+
+// ════════════════════════════════════════════════════════════════
+//  ZOOM
+// ════════════════════════════════════════════════════════════════
+function updateZoomBadge(level) {
+  zoomBadge.textContent = `${Math.round(Math.pow(1.2, level) * 100)}%`;
+}
+$('zoom-in').onclick    = () => { const t = activeTab(); if (!t || t.zoom >= 8)  return; browserAPI.tabZoom(t.id,  1); };
+$('zoom-out').onclick   = () => { const t = activeTab(); if (!t || t.zoom <= -5) return; browserAPI.tabZoom(t.id, -1); };
+$('zoom-reset').onclick = () => { const t = activeTab(); if (!t) return;                  browserAPI.tabZoom(t.id,  0); };
+
+// ════════════════════════════════════════════════════════════════
+//  FIND BAR
+// ════════════════════════════════════════════════════════════════
+function showFindBar() {
+  findbar.classList.remove('hidden');
+  findInput.focus();
+  findInput.select();
+}
+function hideFindBar() {
+  findbar.classList.add('hidden');
+  const t = activeTab();
+  if (t) browserAPI.tabFindStop(t.id, 'clearSelection');
+  findCount.textContent = '0/0';
 }
 
-function closeTab(id) {
-  const idx = tabs.findIndex(t => t.id === id);
-  if (idx === -1) return;
-  const [tab] = tabs.splice(idx, 1);
-
-  try { tab.view.stop(); } catch {}
-  try { tab.view.loadURL('about:blank'); } catch {}
-  try { tab.view.remove(); } catch {}
-  try { tab.el.remove(); } catch {}
-
-  tab.view = null;
-  tab.el = null;
-
-  if (tabs.length === 0) {
-    if (isPrivate) return browserAPI.close();
-    return createTab();
+let findDebounce = null;
+findInput.addEventListener('input', () => {
+  clearTimeout(findDebounce);
+  const t = activeTab();
+  if (!t) return;
+  const q = findInput.value;
+  if (!q) {
+    browserAPI.tabFindStop(t.id, 'clearSelection');
+    findCount.textContent = '0/0';
+    return;
   }
-  if (activeId === id) activateTab(tabs[Math.max(0, idx - 1)].id);
-  saveSession();
-}
+  findDebounce = setTimeout(() => {
+    browserAPI.tabFind(t.id, { text: q, forward: true, findNext: false });
+  }, 80);
+});
+findInput.addEventListener('keydown', (e) => {
+  const t = activeTab();
+  if (!t) return;
+  if (e.key === 'Enter') browserAPI.tabFind(t.id, { text: findInput.value, forward: !e.shiftKey, findNext: true });
+  if (e.key === 'Escape') hideFindBar();
+});
+$('find-next').onclick  = () => { const t = activeTab(); if (t) browserAPI.tabFind(t.id, { text: findInput.value, forward: true,  findNext: true }); };
+$('find-prev').onclick  = () => { const t = activeTab(); if (t) browserAPI.tabFind(t.id, { text: findInput.value, forward: false, findNext: true }); };
+$('find-close').onclick = hideFindBar;
 
-// ============================================================
-//  TAB SLEEP · unload inactive tabs after 5 minutes
-// ============================================================
-setInterval(() => {
-  const now = Date.now();
-  tabs.forEach(t => {
-    if (t.id === activeId) return;
-    if (t.sleeping) return;
-    if (t.pinned) return;
-    if (!t.view || typeof t.view.getURL !== 'function') return;
-
-    const url = t.view.getURL() || '';
-    if (!url) return;
-    if (url.startsWith('about:')) return;
-    if (isInternalPage(url)) return;
-
-    // Never sleep audible tabs (music/video playing)
-    try {
-      if (typeof t.view.isCurrentlyAudible === 'function' && t.view.isCurrentlyAudible()) return;
-    } catch {}
-
-    const last = t.lastActive || 0;
-    if (now - last > TAB_SLEEP_MS) {
-      t.savedUrl = url;
-      t.sleeping = true;
-      try {
-        t.view.loadURL('about:blank');
-        dlog('sleeping tab:', t.title, '(' + Math.round((now - last) / 60000) + 'm idle)');
-      } catch {
-        t.sleeping = false;
-        t.savedUrl = null;
-      }
-    }
-  });
-}, TAB_SLEEP_TICK);
-
-// ============================================================
-//  SEARCH SUGGESTIONS (host URL bar)
-// ============================================================
+// ════════════════════════════════════════════════════════════════
+//  SUGGESTIONS UI
+// ════════════════════════════════════════════════════════════════
 let suggestTimer = null;
 let suggestItems = [];
 let suggestIndex = -1;
@@ -581,19 +656,18 @@ let suggestRequestId = 0;
 
 function hideSuggestions() {
   suggestionsEl.classList.add('hidden');
-  suggestionsEl.innerHTML = '';
+  suggestionsEl.replaceChildren();
   suggestItems = [];
   suggestIndex = -1;
 }
 
 function renderSuggestions(items, query) {
-  suggestItems = items;
+  suggestItems = Array.isArray(items) ? items.slice(0, MAX_SUGGEST_ITEMS) : [];
   suggestIndex = -1;
-
-  if (!items.length) return hideSuggestions();
+  if (!suggestItems.length) return hideSuggestions();
 
   const q = query.toLowerCase();
-  suggestionsEl.innerHTML = items.map((s, i) => {
+  suggestionsEl.innerHTML = suggestItems.map((s, i) => {
     const lower = String(s).toLowerCase();
     const matchIdx = lower.indexOf(q);
     let html = escapeHtml(s);
@@ -613,12 +687,10 @@ function renderSuggestions(items, query) {
   }).join('');
 
   suggestionsEl.classList.remove('hidden');
-
   suggestionsEl.querySelectorAll('.sug-item').forEach(el => {
     el.onmousedown = (e) => {
       e.preventDefault();
-      const value = decodeURIComponent(el.dataset.value);
-      navigate(value);
+      navigate(decodeURIComponent(el.dataset.value));
       hideSuggestions();
       urlInput.blur();
     };
@@ -634,46 +706,77 @@ function setActiveSuggestion(idx) {
 
 async function fetchSuggestions(query) {
   const myId = ++suggestRequestId;
+  if (!isStr(query, MAX_SUGGEST_QUERY) || query.length < 2) return;
+
+  const cached = cacheGet(query);
+  if (cached) {
+    if (myId === suggestRequestId) renderSuggestions(cached, query);
+    return;
+  }
+
+  for (let i = query.length - 1; i >= 2; i--) {
+    const prefix = query.slice(0, i);
+    const pre = cacheGet(prefix);
+    if (pre) {
+      const filtered = pre.filter(s =>
+        String(s).toLowerCase().includes(query.toLowerCase())
+      );
+      if (filtered.length && myId === suggestRequestId) {
+        renderSuggestions(filtered, query);
+      }
+      break;
+    }
+  }
+
+  try {
+    const items = await fetchSuggestionsDirect(query);
+    if (myId !== suggestRequestId) return;
+    cacheSet(query, items);
+    rememberQuery(query);
+    renderSuggestions(items, query);
+    return;
+  } catch {}
+
   try {
     const items = await browserAPI.searchSuggest(query);
     if (myId !== suggestRequestId) return;
-    renderSuggestions(items || [], query);
+    const arr = Array.isArray(items) ? items.slice(0, MAX_SUGGEST_ITEMS) : [];
+    cacheSet(query, arr);
+    rememberQuery(query);
+    renderSuggestions(arr, query);
   } catch {
     if (myId === suggestRequestId) hideSuggestions();
   }
 }
 
-// ============================================================
+// ════════════════════════════════════════════════════════════════
 //  URL INPUT
-// ============================================================
+// ════════════════════════════════════════════════════════════════
 urlInput.addEventListener('input', () => {
-  if (currentSettings?.suggestions === false) return hideSuggestions();
+  if (state.settings?.suggestions === false) return hideSuggestions();
   const v = urlInput.value.trim();
   clearTimeout(suggestTimer);
   if (!v || v.length < 2) return hideSuggestions();
-  if (/^(https?:\/\/)|^[\w-]+\.[\w.-]+(\/|$)/.test(v)) return hideSuggestions();
+  if (looksLikeUrl(v)) return hideSuggestions();
   suggestTimer = setTimeout(() => fetchSuggestions(v), 100);
 });
 
 urlInput.addEventListener('keydown', (e) => {
   const open = !suggestionsEl.classList.contains('hidden');
 
-  if (e.key === 'ArrowDown' && open) {
+  if (e.key === 'ArrowDown' && open && suggestItems.length) {
     e.preventDefault();
     setActiveSuggestion((suggestIndex + 1) % suggestItems.length);
     return;
   }
-  if (e.key === 'ArrowUp' && open) {
+  if (e.key === 'ArrowUp' && open && suggestItems.length) {
     e.preventDefault();
     setActiveSuggestion((suggestIndex - 1 + suggestItems.length) % suggestItems.length);
     return;
   }
   if (e.key === 'Enter') {
-    if (suggestIndex >= 0 && suggestItems[suggestIndex]) {
-      navigate(suggestItems[suggestIndex]);
-    } else {
-      navigate(urlInput.value);
-    }
+    if (suggestIndex >= 0 && suggestItems[suggestIndex]) navigate(suggestItems[suggestIndex]);
+    else navigate(urlInput.value);
     hideSuggestions();
     urlInput.blur();
     return;
@@ -684,74 +787,61 @@ urlInput.addEventListener('keydown', (e) => {
   }
 });
 
-urlInput.addEventListener('focus', () => urlInput.select());
+urlInput.addEventListener('focus', () => {
+  urlInput.select();
+  for (const q of recentQueries.slice(0, 2)) cacheGet(q);
+});
 urlInput.addEventListener('blur', () => setTimeout(hideSuggestions, 120));
 
-document.getElementById('back').onclick    = () => { const v = activeView(); if (v?.canGoBack()) v.goBack(); };
-document.getElementById('forward').onclick = () => { const v = activeView(); if (v?.canGoForward()) v.goForward(); };
-document.getElementById('reload').onclick  = () => activeView()?.reload();
-document.getElementById('new-tab').onclick = () => createTab();
-
-// ============================================================
-//  ZOOM
-// ============================================================
-function updateZoomBadge(level) {
-  zoomBadge.textContent = `${Math.round(Math.pow(1.2, level) * 100)}%`;
+// ════════════════════════════════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════════════════════════════════
+function navigate(input) {
+  const t = activeTab();
+  if (!t) return;
+  const url = normalizeUrl(input);
+  if (!url || isBlockedProtocol(url)) return;
+  browserAPI.tabNavigate(t.id, url);
 }
-function zoomIn()    { const t = activeTab(); if (!t || t.zoom >= 8) return; t.zoom++; t.view.setZoomLevel(t.zoom); updateZoomBadge(t.zoom); }
-function zoomOut()   { const t = activeTab(); if (!t || t.zoom <= -5) return; t.zoom--; t.view.setZoomLevel(t.zoom); updateZoomBadge(t.zoom); }
-function zoomReset() { const t = activeTab(); if (!t) return; t.zoom = 0; t.view.setZoomLevel(0); updateZoomBadge(0); }
-document.getElementById('zoom-in').onclick    = zoomIn;
-document.getElementById('zoom-out').onclick   = zoomOut;
-document.getElementById('zoom-reset').onclick = zoomReset;
-
-document.getElementById('devtools').onclick = () => activeView()?.openDevTools();
-
-// ============================================================
-//  FIND
-// ============================================================
-function showFindBar() {
-  findbar.classList.remove('hidden');
-  findInput.focus();
-  findInput.select();
+function navigateTab(tab, rawUrl) {
+  if (!tab) return;
+  const url = normalizeUrl(rawUrl);
+  if (!url || isBlockedProtocol(url)) return;
+  browserAPI.tabNavigate(tab.id, url);
 }
-function hideFindBar() {
-  findbar.classList.add('hidden');
-  activeView()?.stopFindInPage('clearSelection');
-  findCount.textContent = '0/0';
-}
-let findDebounce = null;
-findInput.addEventListener('input', () => {
-  clearTimeout(findDebounce);
-  const q = findInput.value;
-  if (!q) {
-    activeView()?.stopFindInPage('clearSelection');
-    findCount.textContent = '0/0';
-    return;
+
+// ════════════════════════════════════════════════════════════════
+//  ACTIVE UI
+// ════════════════════════════════════════════════════════════════
+function updateActiveUI() {
+  const t = activeTab();
+
+  if (document.activeElement !== urlInput) {
+    if (t && !t.isInternal && t.url && !t.url.startsWith('about:')) {
+      urlInput.value = t.url;
+    } else {
+      urlInput.value = '';
+    }
   }
-  findDebounce = setTimeout(() => {
-    activeView()?.findInPage(q, { forward: true, findNext: false });
-  }, 80);
-});
-findInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') activeView()?.findInPage(findInput.value, { forward: !e.shiftKey, findNext: true });
-  if (e.key === 'Escape') hideFindBar();
-});
-document.getElementById('find-next').onclick  = () => activeView()?.findInPage(findInput.value, { forward: true, findNext: true });
-document.getElementById('find-prev').onclick  = () => activeView()?.findInPage(findInput.value, { forward: false, findNext: true });
-document.getElementById('find-close').onclick = hideFindBar;
 
-// ============================================================
+  $('back').disabled    = !(t && t.canGoBack);
+  $('forward').disabled = !(t && t.canGoForward);
+  updateZoomBadge(t?.zoom || 0);
+  updateStar();
+}
+
+// ════════════════════════════════════════════════════════════════
 //  BOOKMARKS
-// ============================================================
+// ════════════════════════════════════════════════════════════════
 async function loadBookmarks() {
-  bookmarks = (await browserAPI.bookmarksList()) || [];
+  try { state.bookmarks = (await browserAPI.bookmarksList()) || []; }
+  catch { state.bookmarks = []; }
   renderBookmarkBar();
   updateStar();
 }
 
 function renderBookmarkBar() {
-  bookmarkBar.innerHTML = bookmarks.map(b => `
+  bookmarkBar.innerHTML = state.bookmarks.map(b => `
     <div class="bm-item" data-url="${encodeURIComponent(b.url)}">
       <span class="fav">${ICONS.bookmark}</span>
       <span>${escapeHtml(b.title || b.url)}</span>
@@ -764,192 +854,159 @@ function renderBookmarkBar() {
       if (e.target.closest('.bm-remove')) return;
       const url = decodeURIComponent(el.dataset.url);
       const t = activeTab();
-      if (t && t.isInternal && isNewTabUrl(t.view.getURL() || '')) navigateTab(t, url);
-      else createTab(url, { activate: !currentSettings?.backgroundTabs });
+      if (t && t.isInternal && isNewTabUrl(t.url)) navigateTab(t, url);
+      else browserAPI.tabCreate({ url, activate: !state.settings?.backgroundTabs });
     });
     el.querySelector('.bm-remove').addEventListener('click', async (e) => {
       e.stopPropagation();
       const url = decodeURIComponent(el.dataset.url);
-      bookmarks = await browserAPI.bookmarksRemove(url) || [];
+      try { state.bookmarks = (await browserAPI.bookmarksRemove(url)) || []; } catch {}
       renderBookmarkBar();
       updateStar();
     });
   });
+
+  requestAnimationFrame(reportChromeBounds);
 }
 
 function updateStar() {
   const t = activeTab();
-  if (!t || t.isInternal) {
+  if (!t || t.isInternal || !t.url) {
     starBtn.classList.remove('active');
     starBtn.innerHTML = ICONS.starEmpty;
     return;
   }
-  let url = '';
-  try { url = t.view.getURL() || ''; } catch {}
-  const isBookmarked = bookmarks.some(b => b.url === url);
+  const url = safeTabUrl(t);
+  const isBookmarked = state.bookmarks.some(b => b.url === url);
   starBtn.classList.toggle('active', isBookmarked);
   starBtn.innerHTML = isBookmarked ? ICONS.starFilled : ICONS.starEmpty;
 }
 
 starBtn.onclick = async () => {
   const t = activeTab();
-  if (!t || t.isInternal) return;
-  const url = t.view.getURL();
+  if (!t || t.isInternal || !t.url) return;
+  const url = safeTabUrl(t);
   if (!url) return;
-  if (bookmarks.some(b => b.url === url)) {
-    bookmarks = await browserAPI.bookmarksRemove(url) || [];
-  } else {
-    bookmarks = await browserAPI.bookmarksAdd({ url, title: t.view.getTitle() || url }) || [];
-  }
+  try {
+    if (state.bookmarks.some(b => b.url === url)) {
+      state.bookmarks = (await browserAPI.bookmarksRemove(url)) || [];
+    } else {
+      state.bookmarks = (await browserAPI.bookmarksAdd({
+        url,
+        title: String(t.title || url).slice(0, 300),
+      })) || [];
+    }
+  } catch {}
   renderBookmarkBar();
   updateStar();
 };
 
-browserAPI.on('bookmarks:update', (list) => {
-  bookmarks = list || [];
-  renderBookmarkBar();
-  updateStar();
-});
-
-// ============================================================
-//  INTERNAL PAGES
-// ============================================================
-document.getElementById('history-btn').onclick = () => {
+// ════════════════════════════════════════════════════════════════
+//  INTERNAL PAGE BUTTONS
+// ════════════════════════════════════════════════════════════════
+$('history-btn').onclick = () => {
   const t = activeTab();
   if (t && t.isInternal) navigateTab(t, HISTORY_URL);
-  else createTab(HISTORY_URL, { record: false });
+  else browserAPI.tabCreate({ url: HISTORY_URL, record: false });
 };
-
-document.getElementById('downloads-btn').onclick = () => {
+$('downloads-btn').onclick = () => {
   const t = activeTab();
   if (t && t.isInternal) navigateTab(t, DOWNLOADS_URL);
-  else createTab(DOWNLOADS_URL, { record: false });
+  else browserAPI.tabCreate({ url: DOWNLOADS_URL, record: false });
 };
-
 settingsBtn.onclick = () => {
   const t = activeTab();
   if (t && t.isInternal) navigateTab(t, SETTINGS_URL);
-  else createTab(SETTINGS_URL, { record: false });
+  else browserAPI.tabCreate({ url: SETTINGS_URL, record: false });
 };
 
-// ============================================================
-//  DOWNLOADS
-// ============================================================
-browserAPI.on('downloads:update', (list) => {
-  downloadsCache = list || [];
-  tabs.forEach(t => {
-    if (t.isInternal && t.view && (t.view.getURL() || '').includes('downloads.html')) {
-      try { t.view.send('downloads:update', downloadsCache); } catch {}
-    }
-  });
-});
-
-browserAPI.on('downloads:auto-open', () => {
-  const latest = downloadsCache[0];
-  if (latest) {
-    dlToastText.textContent = `Downloaded: ${latest.filename}`;
-    dlToastOpen.onclick = () => {
-      if (latest.savePath) browserAPI.openPath(latest.savePath);
-      dlToast.classList.add('hidden');
-    };
-    dlToast.classList.remove('hidden');
-    clearTimeout(window.__dlToastTimer);
-    window.__dlToastTimer = setTimeout(() => dlToast.classList.add('hidden'), 6000);
-  }
-});
-
+// ════════════════════════════════════════════════════════════════
+//  DOWNLOAD TOAST
+// ════════════════════════════════════════════════════════════════
 dlToastClose.onclick = () => dlToast.classList.add('hidden');
 
-// ============================================================
-//  MESSAGES FROM INTERNAL PAGES · postMessage fallback
-// ============================================================
+// ════════════════════════════════════════════════════════════════
+//  LEGACY postMessage BRIDGE
+// ════════════════════════════════════════════════════════════════
 window.addEventListener('message', (e) => {
   const d = e.data;
-  if (!d || typeof d !== 'object') return;
+  if (!isObj(d)) return;
 
-  if (d.type === 'nova-navigate' && d.url) {
-    handleNavigateRequest(d.url);
+  if (d.type === 'nova-navigate' && isStr(d.url, MAX_NAV_URL_LEN)) {
+    const safe = safeUrl(d.url);
+    if (!safe) return;
+    const t = activeTab();
+    if (t && t.isInternal && isNewTabUrl(t.url)) navigateTab(t, safe);
+    else browserAPI.tabCreate({ url: safe, activate: !state.settings?.backgroundTabs });
     return;
   }
-
-  if (d.type === 'nova-suggest' && typeof d.query === 'string') {
+  if (d.type === 'nova-suggest' && isStr(d.query, MAX_SUGGEST_QUERY)) {
     const query = d.query.trim();
     if (query.length < 2) return;
-    if (currentSettings?.suggestions === false) return;
-
-    const t = activeTab();
-    if (!t || !t.isInternal || !isNewTabUrl(t.view.getURL() || '')) return;
-
-    handleSuggestRequest(t.view, query, d.reqId);
-  }
-});
-
-// ============================================================
-//  SESSION
-//  Uses savedUrl when a tab is sleeping so we don't persist about:blank
-// ============================================================
-function saveSession() {
-  if (isPrivate) return;
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    const data = tabs.map(t => {
-      let url = '';
-      if (t.sleeping && t.savedUrl) {
-        url = t.savedUrl;
-      } else {
-        try { url = t.view.getURL() || t.url || ''; }
-        catch { url = t.url || ''; }
-      }
-      return { url, title: t.title };
-    }).filter(t =>
-      t.url &&
-      t.url !== 'about:blank' &&
-      !t.url.startsWith('about:') &&
-      !isInternalPage(t.url)
-    );
-    await browserAPI.sessionSave({ tabs: data });
-  }, 800);
-}
-
-async function restoreSession() {
-  if (isPrivate) { createTab(); return; }
-  if (currentSettings && currentSettings.restoreSession === false) {
-    createTab();
+    if (state.settings?.suggestions === false) return;
+    browserAPI.searchSuggest(query).then(items => {
+      try { e.source?.postMessage({ stage: 'results', query, reqId: d.reqId, items }, '*'); } catch {}
+    }).catch(() => {});
     return;
   }
-  const saved = await browserAPI.sessionLoad();
-  if (saved && saved.length) {
-    saved.forEach((s, i) => createTab(s.url, { activate: i === 0 }));
-  } else {
-    createTab();
-  }
-}
-
-// ============================================================
-//  CONTEXT MENU CALLBACKS
-// ============================================================
-browserAPI.on('ctx:back',    () => { const v = activeView(); if (v?.canGoBack()) v.goBack(); });
-browserAPI.on('ctx:forward', () => { const v = activeView(); if (v?.canGoForward()) v.goForward(); });
-browserAPI.on('ctx:reload',  () => activeView()?.reload());
-browserAPI.on('ctx:inspect', (x, y) => { activeView()?.inspectElement(x, y); activeView()?.openDevTools(); });
-browserAPI.on('ctx:open-link-new-tab', (url) => createTab(url, { activate: !currentSettings?.backgroundTabs }));
-browserAPI.on('ctx:search-text', (text) => {
-  const engine = currentSettings?.searchEngine || 'duckduckgo';
-  const prefix = SEARCH_ENGINES[engine] || SEARCH_ENGINES.duckduckgo;
-  createTab(prefix + encodeURIComponent(text), { activate: !currentSettings?.backgroundTabs });
 });
 
-// ============================================================
-//  EXTERNAL NEW TAB
-// ============================================================
-browserAPI.onNewTab((url) => createTab(url, { activate: !currentSettings?.backgroundTabs }));
+// ════════════════════════════════════════════════════════════════
+//  DEBUG API
+// ════════════════════════════════════════════════════════════════
+window.__niddle = {
+  state,
+  tabs: () => state.tabs,
+  active: () => state.activeId,
+  close: (id) => closeTabLocal(id || state.activeId),
+  activate: (id) => browserAPI.tabActivate(id),
+  api: () => window.browserAPI,
+  resync: async () => {
+    const data = await browserAPI.tabList();
+    state.tabs = Array.isArray(data?.tabs) ? data.tabs : [];
+    state.activeId = data?.activeId || null;
+    renderTabStrip();
+    updateActiveUI();
+    console.log('[niddle] resynced', state.tabs.length, 'tabs');
+  },
+};
 
-// ============================================================
+// ════════════════════════════════════════════════════════════════
 //  BOOT
-// ============================================================
+// ════════════════════════════════════════════════════════════════
 (async () => {
-  await preloadReady;
-  await loadSettings();
+  console.log('[niddle] booting v8');
+
+  try {
+    const s = await browserAPI.settingsGet();
+    applySettings(s);
+  } catch {}
+
   await loadBookmarks();
-  await restoreSession();
+
+  try {
+    const data = await browserAPI.tabList();
+    console.log('[niddle] initial tab list:', data);
+    state.tabs = Array.isArray(data?.tabs) ? data.tabs : [];
+    state.activeId = data?.activeId || null;
+    renderTabStrip();
+    updateActiveUI();
+  } catch (err) {
+    console.error('[niddle] tabList failed', err);
+    state.tabs = [];
+    state.activeId = null;
+  }
+
+  requestAnimationFrame(() => {
+    reportChromeBounds();
+    requestAnimationFrame(reportChromeBounds);
+  });
 })();
+
+// Pause background animations when chrome isn't visible
+document.addEventListener('visibilitychange', () => {
+  document.body.style.setProperty(
+    'animation-play-state',
+    document.hidden ? 'paused' : 'running'
+  );
+});

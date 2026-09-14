@@ -544,7 +544,7 @@ webview.active { display: flex; }
   width: min(720px, 92vw);
   max-height: 420px;
   overflow-y: auto;
-  z-index: 300;
+  z-index: 500;
   background: rgba(20, 20, 30, 0.97);
   backdrop-filter: blur(28px) saturate(160%);
   -webkit-backdrop-filter: blur(28px) saturate(160%);
@@ -827,4 +827,49 @@ body.mode-darker .bookmark-bar {
   }
   body.mode-system .chrome-top::before { opacity: 0; }
   body.mode-system::before { opacity: 0.35; }
+}
+/* ═══════════════════════════════════════════════════════════════
+   Tab strip polish for v7
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Hint that tab bodies are draggable; ✕ is a normal pointer */
+.tab { cursor: grab; }
+.tab:active { cursor: grabbing; }
+.tab .close { cursor: pointer; }
+
+/* Drag visuals */
+.tab.dragging {
+  opacity: 0.28;
+  transition: none;
+  transform: none;
+}
+.tab.dragging::before { opacity: 0 !important; }
+
+.tab-ghost {
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.92;
+  border-radius: 10px;
+  background: linear-gradient(135deg,
+    rgba(139, 92, 246, 0.35),
+    rgba(236, 72, 153, 0.22));
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, 0.6),
+    0 0 28px rgba(139, 92, 246, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+body.tab-dragging {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Make sure the tab body / close are hit-testable independent of app-region */
+.tab,
+.tab .close,
+.tab .favicon,
+.tab .title,
+.new-tab {
+  -webkit-app-region: no-drag !important;
 }

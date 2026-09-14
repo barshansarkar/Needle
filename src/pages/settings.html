@@ -51,7 +51,6 @@
       height: 100vh;
     }
 
-    /* ambient aurora */
     body::before {
       content: '';
       position: fixed; inset: -30%;
@@ -211,7 +210,6 @@
       padding: 44px 40px 80px;
     }
 
-    /* ── Page header ── */
     .page-head {
       display: flex;
       align-items: flex-start;
@@ -246,7 +244,6 @@
       flex-shrink: 0;
     }
 
-    /* ── Buttons ── */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -302,7 +299,6 @@
       color: var(--text);
     }
 
-    /* ── Section card ── */
     .section {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -336,6 +332,14 @@
     }
     .section-icon svg { width: 15px; height: 15px; }
 
+    .section-icon.ok {
+      background: linear-gradient(135deg,
+        rgba(16, 185, 129, 0.18),
+        rgba(132, 204, 22, 0.10));
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.28);
+    }
+
     .section-head-text h2 {
       font-size: 13.5px;
       font-weight: 650;
@@ -347,7 +351,6 @@
       color: var(--text-muted);
     }
 
-    /* ── Row ── */
     .row {
       display: flex;
       align-items: center;
@@ -374,7 +377,6 @@
 
     .row-control { flex-shrink: 0; }
 
-    /* ── Pills / tags ── */
     .pill {
       display: inline-flex;
       align-items: center;
@@ -389,13 +391,12 @@
       color: #c4b5fd;
       border: 1px solid rgba(139, 92, 246, 0.25);
     }
-    .pill.warn {
-      background: rgba(245, 158, 11, 0.12);
-      color: #fcd34d;
-      border-color: rgba(245, 158, 11, 0.28);
+    .pill.ok {
+      background: rgba(16, 185, 129, 0.14);
+      color: #6ee7b7;
+      border-color: rgba(16, 185, 129, 0.28);
     }
 
-    /* ── Select ── */
     .select-wrap {
       position: relative;
       display: inline-flex;
@@ -442,7 +443,6 @@
       color: var(--text);
     }
 
-    /* ── Toggle ── */
     .switch {
       position: relative;
       display: inline-flex;
@@ -491,7 +491,6 @@
       box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.22);
     }
 
-    /* ── Theme grid ── */
     .themes {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
@@ -578,7 +577,6 @@
       transform: scale(1);
     }
 
-    /* ── Info row (about) ── */
     .info-strip {
       display: flex;
       align-items: center;
@@ -611,7 +609,6 @@
       background: var(--border);
     }
 
-    /* ── Toast ── */
     .toast {
       position: fixed;
       bottom: 26px;
@@ -667,7 +664,6 @@
       box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
     }
 
-    /* ── Custom confirm dialog ── */
     .dialog-backdrop {
       position: fixed;
       inset: 0;
@@ -735,7 +731,6 @@
       justify-content: flex-end;
     }
 
-    /* ── Sections in scroll container ── */
     .pane { display: none; }
     .pane.active { display: block; animation: fadeIn .22s var(--ease); }
 
@@ -744,7 +739,6 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── Text input (custom string fields) ── */
     input[type="text"] {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -765,7 +759,6 @@
     }
     input[type="text"]::placeholder { color: var(--text-muted); }
 
-    /* ── Reset section ── */
     .danger-zone {
       background: rgba(239, 68, 68, 0.04);
       border-color: rgba(239, 68, 68, 0.15);
@@ -779,7 +772,6 @@
       border-color: rgba(239, 68, 68, 0.25);
     }
 
-    /* ── Shortcut list ── */
     .shortcut-list {
       padding: 4px 0 12px;
       display: grid;
@@ -818,7 +810,6 @@
     }
     kbd + kbd { margin-left: 2px; }
 
-    /* ── Search-engine favicon-style dot ── */
     .engine-dot {
       width: 8px; height: 8px;
       border-radius: 50%;
@@ -831,7 +822,6 @@
 </head>
 <body>
 
-  <!-- ══════════════ SIDEBAR ══════════════ -->
   <aside class="sidebar">
     <div class="brand-lockup">
       <span class="brand-mark"></span>
@@ -891,7 +881,6 @@
     </div>
   </aside>
 
-  <!-- ══════════════ MAIN ══════════════ -->
   <main class="main">
     <div class="main-inner">
 
@@ -1137,6 +1126,38 @@
 
         <div class="section">
           <div class="section-head">
+            <span class="section-icon ok">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </span>
+            <div class="section-head-text">
+              <h2>Content Blocking</h2>
+              <p>Stop ads, trackers, and unwanted content</p>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="row-label">
+              <div class="title">
+                Block ads &amp; trackers
+                <span class="pill ok">Recommended</span>
+              </div>
+              <div class="desc">
+                Blocks ads and tracking scripts at the network level using the EasyList and EasyPrivacy filter lists. Cosmetic filtering hides leftover ad placeholders. Pages load faster, use less data, and can't follow you across sites.
+              </div>
+            </div>
+            <div class="row-control">
+              <label class="switch">
+                <input type="checkbox" id="adblocker" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
             <span class="section-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -1227,7 +1248,7 @@
 
           <div class="row">
             <div class="row-label">
-              <div class="title">Cookies & site data</div>
+              <div class="title">Cookies &amp; site data</div>
               <div class="desc">Logs you out of every website</div>
             </div>
             <div class="row-control">
@@ -1311,7 +1332,7 @@
               </svg>
             </span>
             <div class="section-head-text">
-              <h2>Zoom & View</h2>
+              <h2>Zoom &amp; View</h2>
               <p>Adjust the page scale</p>
             </div>
           </div>
@@ -1375,7 +1396,7 @@
             <div class="divider-v"></div>
             <div class="kv">
               <div class="k">Runtime</div>
-              <div class="v">Electron</div>
+              <div class="v">Electron, C++</div>
             </div>
           </div>
 
@@ -1430,7 +1451,6 @@
     </div>
   </main>
 
-  <!-- ══════════════ TOAST ══════════════ -->
   <div class="toast" id="toast">
     <span class="toast-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -1440,7 +1460,6 @@
     <span id="toast-text">Saved</span>
   </div>
 
-  <!-- ══════════════ CONFIRM DIALOG ══════════════ -->
   <div class="dialog-backdrop" id="dialog-backdrop">
     <div class="dialog">
       <div class="dialog-icon">
@@ -1481,7 +1500,6 @@
 
     // ═══════════════ STATE ═══════════════
     let current = null;
-    let saveQueue = Promise.resolve();
     let pendingPatch = null;
     let saveDebounce = null;
 
@@ -1511,10 +1529,11 @@
       animations:      document.getElementById('animations'),
 
       // Privacy
-      doNotTrack:        document.getElementById('doNotTrack'),
-      blockThirdParty:   document.getElementById('blockThirdParty'),
+      adblocker:          document.getElementById('adblocker'),
+      doNotTrack:         document.getElementById('doNotTrack'),
+      blockThirdParty:    document.getElementById('blockThirdParty'),
       clearHistoryOnExit: document.getElementById('clearHistoryOnExit'),
-      suggestions:       document.getElementById('suggestions'),
+      suggestions:        document.getElementById('suggestions'),
 
       // Actions
       reset:        document.getElementById('reset'),
@@ -1629,6 +1648,7 @@
       el.animations.checked          = !!s.animations;
 
       // Privacy
+      el.adblocker.checked           = s.adblocker !== false; // default on
       el.doNotTrack.checked          = !!s.doNotTrack;
       el.blockThirdParty.checked     = !!s.blockThirdParty;
       el.clearHistoryOnExit.checked  = !!s.clearHistoryOnExit;
@@ -1644,7 +1664,7 @@
       document.documentElement.style.setProperty('--accent-2', t.accent2);
     }
 
-    // ═══════════════ SAVE (debounced + serialized) ═══════════════
+    // ═══════════════ SAVE (debounced) ═══════════════
     function save(patch, opts = {}) {
       if (!window.novaAPI) return Promise.resolve();
 
@@ -1705,7 +1725,13 @@
     el.compactTabs.addEventListener('change', () => save({ compactTabs: el.compactTabs.checked }));
     el.animations.addEventListener('change', () => save({ animations: el.animations.checked }));
 
-    // Privacy
+    // Privacy — adblocker gets a dedicated toast so the user knows it took effect
+    el.adblocker.addEventListener('change', () => {
+      const enabled = el.adblocker.checked;
+      save({ adblocker: enabled }, {
+        message: enabled ? 'Ad blocker enabled' : 'Ad blocker disabled',
+      });
+    });
     el.doNotTrack.addEventListener('change', () => save({ doNotTrack: el.doNotTrack.checked }));
     el.blockThirdParty.addEventListener('change', () => save({ blockThirdParty: el.blockThirdParty.checked }));
     el.clearHistoryOnExit.addEventListener('change', () => save({ clearHistoryOnExit: el.clearHistoryOnExit.checked }));
@@ -1732,11 +1758,8 @@
         try {
           if (window.novaAPI?.clearData) {
             await window.novaAPI.clearData(kind);
-          } else {
-            // Fallback: reuse existing history API where possible
-            if (kind === 'history' && window.novaAPI?.historyClear) {
-              await window.novaAPI.historyClear();
-            }
+          } else if (kind === 'history' && window.novaAPI?.historyClear) {
+            await window.novaAPI.historyClear();
           }
           showToast(`${kind.charAt(0).toUpperCase() + kind.slice(1)} cleared`);
         } catch (e) {
